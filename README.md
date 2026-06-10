@@ -57,7 +57,7 @@ unified-calendar/
 
 ### Prerequisites
 
-- Java 21+
+- Java 17+
 - Node.js 20+
 - A Google Cloud project with Calendar API enabled
 - A Microsoft Azure app registration with Calendars.ReadWrite scope
