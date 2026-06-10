@@ -13,7 +13,7 @@ Establishes the backend skeleton that all other backend tasks build on. Correct 
 Use [start.spring.io](https://start.spring.io) or the Spring Initializr CLI with:
 
 - **Build**: Maven
-- **Language**: Java 21
+- **Language**: Java 17
 - **Spring Boot**: 3.x latest
 - **Group**: `com.unifiedcalendar`
 - **Artifact**: `backend`
