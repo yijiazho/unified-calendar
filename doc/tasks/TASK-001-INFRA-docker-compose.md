@@ -52,8 +52,8 @@ Define two services:
 ### `backend/Dockerfile`
 
 Multi-stage build:
-1. Stage `build`: use `eclipse-temurin:21-jdk`, copy source, run `./mvnw package -DskipTests`
-2. Stage `run`: use `eclipse-temurin:21-jre`, copy the fat JAR from `build`, set `ENTRYPOINT`
+1. Stage `build`: use `eclipse-temurin:17-jdk`, copy source, run `./mvnw package -DskipTests`
+2. Stage `run`: use `eclipse-temurin:17-jre`, copy the fat JAR from `build`, set `ENTRYPOINT`
 
 ### `frontend/Dockerfile`
 
