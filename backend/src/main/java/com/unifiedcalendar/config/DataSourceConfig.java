@@ -27,12 +27,14 @@ public class DataSourceConfig {
     @Primary
     public DataSource dataSource() {
         String filePath = jdbcUrl.replaceFirst("^jdbc:sqlite:", "");
-        Path dbPath = Paths.get(filePath);
-        if (dbPath.getParent() != null) {
-            try {
-                Files.createDirectories(dbPath.getParent());
-            } catch (IOException e) {
-                throw new RuntimeException("Cannot create database directory: " + dbPath.getParent(), e);
+        if (!":memory:".equals(filePath) && !filePath.isBlank()) {
+            Path dbPath = Paths.get(filePath);
+            if (dbPath.getParent() != null) {
+                try {
+                    Files.createDirectories(dbPath.getParent());
+                } catch (IOException e) {
+                    throw new RuntimeException("Cannot create database directory: " + dbPath.getParent(), e);
+                }
             }
         }
 
