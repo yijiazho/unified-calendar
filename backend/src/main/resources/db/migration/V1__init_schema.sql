@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS calendar_events (
     id                   INTEGER PRIMARY KEY AUTOINCREMENT,
     admin_id             INTEGER NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
     calendar_account_id  INTEGER NOT NULL REFERENCES calendar_accounts(id) ON DELETE CASCADE,
-    provider             TEXT NOT NULL,
+    provider             TEXT NOT NULL CHECK (provider IN ('GOOGLE', 'OUTLOOK')),
     provider_event_id    TEXT NOT NULL,         -- external ID from Google/Outlook
     title                TEXT,
     start_time_utc       TEXT NOT NULL,          -- ISO-8601 UTC
@@ -57,6 +57,14 @@ CREATE TABLE IF NOT EXISTS calendar_events (
     last_synced_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     UNIQUE (calendar_account_id, provider_event_id)
 );
+
+-- keeps updated_at current; SQLite DEFAULT only fires at INSERT
+CREATE TRIGGER IF NOT EXISTS admins_set_updated_at
+    AFTER UPDATE ON admins
+    FOR EACH ROW
+BEGIN
+    UPDATE admins SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = OLD.id;
+END;
 
 CREATE INDEX IF NOT EXISTS idx_calendar_events_admin_time
     ON calendar_events (admin_id, start_time_utc, end_time_utc);
