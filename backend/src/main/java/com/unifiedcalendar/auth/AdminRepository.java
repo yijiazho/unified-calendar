@@ -9,6 +9,9 @@ public interface AdminRepository {
     /** Resolves an admin by public slug for short links and public availability. */
     Optional<Admin> findBySlug(String slug);
 
+    /** Loads an admin by primary key — used by session-protected endpoints after reading adminId from session. */
+    Optional<Admin> findById(Long id);
+
     /** Creates or updates an admin record and returns the persisted entity. */
     Admin save(Admin admin);
 }
