@@ -18,9 +18,20 @@ type: project
 - **HikariCP `connectionInitSql` with SQLite**: HikariCP executes `connectionInitSql` via `Statement.execute()`, which in the SQLite JDBC driver does NOT support multiple semicolon-separated statements. Only the first PRAGMA will execute. Always use separate `connectionInitSql` calls or a `SQLiteDataSource` subclass approach.
 - **Flyway + SQLite**: Spring Boot 3.3+ pulls Flyway 10+. As of Flyway 11.7.2, SQLite support IS bundled in `flyway-core` (classes in `org.flywaydb.core.internal.database.sqlite`). No extra `flyway-database-sqlite` artifact is needed. Verify on each major Spring Boot version bump.
 - **Encryption default fallback**: `encryption.secret-key=${ENCRYPTION_SECRET_KEY:dev-secret-key-change-in-production}` in `application.properties` provides a weak plaintext default. While acceptable for dev scaffold, the production deploy must override this via environment variable.
-- **Session cookie `secure` flag**: `server.servlet.session.cookie.secure=true` is absent from `application.properties`. This must be set before production deployment (or in a prod-profile). Missing it allows session cookies to transmit over HTTP.
+- **Session cookie `secure` flag**: `server.servlet.session.cookie.secure=true` IS set in `application.properties` (added in TASK-005 admin-auth-BE branch). `application-local.properties` correctly overrides it to `false` for local dev. `same-site=strict` and `http-only=true` are also configured. This risk is now resolved at the property level.
 - **Provider and status fields as `String`**: `CalendarAccount.provider` and `Booking.status` use `String` instead of enums. This is an intentional scaffold decision (enums added in implementation tasks) but is a recurring type-safety concern to flag in downstream tasks.
 - **`WorkingHours` uses `String` for `startTime`/`endTime`**: These should map to `LocalTime` for type safety, or at minimum be documented as `HH:MM` format. Flag in implementation tasks.
+
+## Auth Layer Patterns (established in TASK-005, reviewed 2026-06-11)
+
+- `AuthController` holds a direct `AdminRepository` reference to serve `GET /auth/me`. This is a mild SRP bend — the controller owns two distinct collaborators (service + repo). Acceptable for MVP but flag if the controller grows.
+- `AuthService.signup()` validates slug format but does NOT check slug uniqueness before insert. Uniqueness is enforced only by the database `UNIQUE` constraint, which surfaces as an unhandled `DataIntegrityViolationException` (500) instead of a user-friendly 409/422.
+- `EmailAlreadyUsedException` message includes the raw email value (`"Email already in use: " + email`). This is a minor info-disclosure item in high-sensitivity deployments.
+- `JdbcAdminRepository.save()` re-queries by email after INSERT to return the fully populated entity. This is a safe but slightly redundant pattern (two round-trips); using `findById(keyHolder.getKey().longValue())` would be more direct and avoid the theoretical ambiguity of a just-inserted duplicate email.
+- `keyHolder.getKey()` is called without a null check in `JdbcAdminRepository.save()` — `getKey()` returns `null` when SQLite JDBC does not populate the `GeneratedKeyHolder`. This will NPE in the rare case of a driver/config mismatch.
+- `SessionUtils.requireAdminId()` uses an unsafe raw cast `(Long)` — if anything ever stores a non-Long value under `"adminId"`, it will throw `ClassCastException` and produce a 500 instead of 401.
+- `@DirtiesContext(AFTER_EACH_TEST_METHOD)` is used for integration test isolation with in-memory SQLite. Correct approach; avoids shared state between tests at the cost of Spring context reload per test (slow at scale).
+- Test `signupUser()` helper discards the `MvcResult` and does not assert status — silently swallows signup failures, which can cause misleading test failures downstream.
 
 ## CLAUDE.md Rules Frequently Worth Checking
 
