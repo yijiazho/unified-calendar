@@ -71,6 +71,18 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("POST /auth/signup with missing required field returns 400")
+    void signupMissingFieldReturns400() throws Exception {
+        // Omit slug — Jackson deserializes the missing key as null
+        mvc.perform(post(SIGNUP_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"m@example.com","password":"pass","timezone":"UTC"}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("slug is required"));
+    }
+
+    @Test
     @DisplayName("POST /auth/signup with invalid slug returns 400")
     void signupInvalidSlugReturns400() throws Exception {
         mvc.perform(post(SIGNUP_URL)

@@ -5,6 +5,7 @@ import com.unifiedcalendar.auth.EmailAlreadyUsedException;
 import com.unifiedcalendar.auth.InvalidSlugException;
 import com.unifiedcalendar.auth.SlugAlreadyUsedException;
 import com.unifiedcalendar.auth.UnauthorizedException;
+import com.unifiedcalendar.auth.ValidationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -14,6 +15,12 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(ValidationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Map<String, String> handleValidation(ValidationException ex) {
+        return Map.of("error", ex.getMessage());
+    }
 
     @ExceptionHandler(EmailAlreadyUsedException.class)
     @ResponseStatus(HttpStatus.CONFLICT)

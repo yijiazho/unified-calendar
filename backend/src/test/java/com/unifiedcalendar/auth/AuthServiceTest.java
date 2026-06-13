@@ -53,6 +53,48 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("signup with null email throws ValidationException")
+    void signupNullEmailThrows() {
+        assertThrows(ValidationException.class,
+                () -> service.signup(null, "pass", "slug", "UTC"));
+    }
+
+    @Test
+    @DisplayName("signup with blank password throws ValidationException")
+    void signupBlankPasswordThrows() {
+        assertThrows(ValidationException.class,
+                () -> service.signup("a@example.com", "  ", "slug", "UTC"));
+    }
+
+    @Test
+    @DisplayName("signup with null slug throws ValidationException before slug-format check")
+    void signupNullSlugThrows() {
+        assertThrows(ValidationException.class,
+                () -> service.signup("a@example.com", "pass", null, "UTC"));
+    }
+
+    @Test
+    @DisplayName("signup with null timezone throws ValidationException")
+    void signupNullTimezoneThrows() {
+        assertThrows(ValidationException.class,
+                () -> service.signup("a@example.com", "pass", "slug", null));
+    }
+
+    @Test
+    @DisplayName("login with null email throws ValidationException")
+    void loginNullEmailThrows() {
+        assertThrows(ValidationException.class,
+                () -> service.login(null, "pass"));
+    }
+
+    @Test
+    @DisplayName("login with blank password throws ValidationException")
+    void loginBlankPasswordThrows() {
+        assertThrows(ValidationException.class,
+                () -> service.login("a@example.com", ""));
+    }
+
+    @Test
     @DisplayName("signup with invalid slug throws InvalidSlugException")
     void signupInvalidSlugThrows() {
         assertThrows(InvalidSlugException.class,

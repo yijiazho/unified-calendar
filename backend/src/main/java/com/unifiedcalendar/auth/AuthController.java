@@ -1,5 +1,6 @@
 package com.unifiedcalendar.auth;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -24,9 +25,13 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public Map<String, Object> login(@RequestBody LoginRequest body, HttpSession session) {
+    public Map<String, Object> login(@RequestBody LoginRequest body, HttpServletRequest request) {
         Admin admin = authService.login(body.email(), body.password());
-        session.setAttribute("adminId", admin.id());
+        // Ensure a session exists, then rotate its ID before binding adminId. This prevents
+        // session fixation: a pre-login session ID planted by an attacker becomes invalid.
+        request.getSession(true);
+        request.changeSessionId();
+        request.getSession().setAttribute("adminId", admin.id());
         return adminView(admin);
     }
 

@@ -20,6 +20,10 @@ public class AuthService {
 
     /** Creates a new admin account; throws if the email/slug is taken or the slug format is invalid. */
     public Admin signup(String email, String password, String slug, String timezone) {
+        requireNonBlank(email, "email");
+        requireNonBlank(password, "password");
+        requireNonBlank(slug, "slug");
+        requireNonBlank(timezone, "timezone");
         if (adminRepository.findByEmail(email).isPresent()) {
             throw new EmailAlreadyUsedException(email);
         }
@@ -40,8 +44,16 @@ public class AuthService {
                 .orElseThrow(UnauthorizedException::new);
     }
 
+    private static void requireNonBlank(String value, String field) {
+        if (value == null || value.isBlank()) {
+            throw new ValidationException(field + " is required");
+        }
+    }
+
     /** Verifies credentials and returns the matching admin; throws AuthenticationException on any mismatch. */
     public Admin login(String email, String password) {
+        requireNonBlank(email, "email");
+        requireNonBlank(password, "password");
         Admin admin = adminRepository.findByEmail(email)
                 .orElseThrow(AuthenticationException::new);
         if (!passwordEncoder.matches(password, admin.passwordHash())) {
