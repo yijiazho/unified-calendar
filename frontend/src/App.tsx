@@ -28,51 +28,51 @@ function RootRedirect() {
   return <Navigate to={admin ? '/dashboard' : '/login'} replace />
 }
 
-function Router() {
+function AppRoutes() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<RootRedirect />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <DashboardPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/settings/calendars"
-          element={
-            <ProtectedRoute>
-              <CalendarConnectPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/settings/hours"
-          element={
-            <ProtectedRoute>
-              <WorkingHoursPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="/s/:slug" element={<PublicSchedulePage />} />
-        <Route path="/book/:slug" element={<BookingFormPage />} />
-        <Route path="/booking/confirm" element={<BookingConfirmPage />} />
-        <Route path="/cancel/:token" element={<CancelPage />} />
-        <Route path="/reschedule/:token" element={<ReschedulePage />} />
-      </Routes>
-    </BrowserRouter>
+    <Routes>
+      <Route path="/" element={<RootRedirect />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<SignupPage />} />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/calendars"
+        element={
+          <ProtectedRoute>
+            <CalendarConnectPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/hours"
+        element={
+          <ProtectedRoute>
+            <WorkingHoursPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="/s/:slug" element={<PublicSchedulePage />} />
+      <Route path="/book/:slug" element={<BookingFormPage />} />
+      <Route path="/booking/confirm" element={<BookingConfirmPage />} />
+      <Route path="/cancel/:token" element={<CancelPage />} />
+      <Route path="/reschedule/:token" element={<ReschedulePage />} />
+    </Routes>
   )
 }
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Router />
-    </AuthProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </BrowserRouter>
   )
 }

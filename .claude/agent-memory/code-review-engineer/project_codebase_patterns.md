@@ -43,16 +43,25 @@ type: project
 **Why:** These are architecture invariants that, if violated early, cause painful refactors and data integrity bugs in production.
 **How to apply:** Flag immediately as Critical if any of these appear in a diff.
 
-## Frontend Conventions (established in TASK-003 scaffold, reviewed 2026-06-10)
+## Frontend Conventions (established in TASK-003 scaffold, reviewed 2026-06-10; updated TASK-006 FE auth, reviewed 2026-06-13)
 
 - Two Axios instances in `src/api/`: `client.ts` (baseURL `/api`, `withCredentials: true`) for admin endpoints, and `publicClient.ts` (baseURL `/api`, `withCredentials: false`) for visitor endpoints. Public API modules (`availability.ts`, `bookings.ts`) correctly import `publicClient` to avoid the 401-redirect interceptor.
-- `client.ts` is missing the 401 interceptor that was specified in the task (`window.location.href = '/login'` on 401). Auth redirect is instead handled by `ProtectedRoute` via `AuthContext`. This is a valid architectural choice but deviates from the spec.
-- `AuthContext` (`src/context/AuthContext.tsx`) provides global auth state via a single `getMe()` call on mount. `useAuth.ts` is a thin re-export of the hook from `AuthContext`. Page stubs and `ProtectedRoute` both consume `useAuth()` from this provider correctly.
-- `Spinner` component exists (`src/components/Spinner.tsx`) and is used in `ProtectedRoute` to avoid blank-screen flash during auth resolution. `role="status"` + `aria-label="Loading"` present for accessibility.
+- As of TASK-006: `client.ts` NOW HAS the 401 interceptor (`window.location.href = '/login'` on 401). It guards auth pages via `window.location.pathname` check to avoid redirect loops. This resolves the prior gap noted in TASK-003 review.
+- `AuthContext` (`src/context/AuthContext.tsx`) is now the full auth state provider: `getMe()` on mount, plus `login()` and `logout()` actions that navigate imperatively after state mutation. `useAuth.ts` is a thin re-export barrel.
+- `ProtectedRoute` is defined in `App.tsx` (not its own file), which is acceptable for MVP scale.
+- `BrowserRouter` wraps `AuthProvider` in `App.tsx` (correct — `AuthProvider` calls `useNavigate()`, which requires a Router ancestor). This is an important architecture constraint: do NOT move `AuthProvider` outside `BrowserRouter`.
+- Inline styles (JS objects in `const styles = {...}`) are the current pattern for LoginPage and SignupPage — no CSS modules or Tailwind in use.
+- `getTimezones()` is a module-level function in `SignupPage.tsx` (not memoized). Since `Intl.supportedValuesOf('timeZone')` returns 400+ entries, this is called fresh on every render. Watch for performance at scale; stable memoization (outside the component or `useMemo`) would be better.
+- The `successMessage` flash pattern uses `location.state` (React Router state) — this is the correct zero-storage approach. State is cleared on page refresh, which is the desired behavior for one-time success banners.
+- `LoginPage` uses both `useNavigate` from react-router-dom AND the `login()` action from `useAuth()`. The `navigate('/dashboard')` call in `AuthContext.login()` makes the `useNavigate` import in `LoginPage` redundant for the happy path, but it is used only in the `useEffect` guard (already-authenticated redirect). Both are necessary.
+- `Spinner` component exists (`src/components/Spinner.tsx`) and is used in `ProtectedRoute` and `LoginPage`. `role="status"` + `aria-label="Loading"` present for accessibility.
 - `Modal` component has an accessibility bug: outer wrapper uses `role="presentation"` but the click-to-close overlay should be `role="dialog"` or have no role; the inner div correctly has `role="dialog"` + `aria-modal="true"` but no accessible label (`aria-labelledby` or `aria-label` missing).
-- Page stubs follow the pattern: one-line JSDoc + `return <div>Label</div>`. Intentional scaffold; not incomplete work.
-- `dist/` directory is present as an untracked file and should be gitignored. The `.gitignore` already lists `dist` but the directory exists outside the repo, meaning it will be committed if someone does `git add .`.
-- `App.css` (184 lines of Vite boilerplate template CSS) and `index.css` (Vite template styles) are present but unused by application code. Should be cleaned up before implementing real pages.
-- `index.html` `<title>` is still the default Vite placeholder "frontend" — should be updated to the application name.
-- `vite.config.ts` adds `changeOrigin: true` to the proxy config (not in the task spec but harmless/correct for most setups).
-- `nginx.conf` IS present in the repo (correcting a stale prior memory entry).
+
+### Known Bugs / Risks Found in TASK-006 FE Auth Review
+
+- **`AuthContext.logout()` does not clear state when the backend call fails.** If `POST /auth/logout` returns a network error, `setAdmin(null)` and `navigate('/login')` are skipped, leaving the user stuck in an authenticated UI with a dead session. Use `finally` instead of sequential `await`.
+- **`client.ts` 401 interceptor triggers on `getMe()` at mount**, which means a fresh visitor hitting `/` triggers `window.location.href = '/login'` (a hard redirect) instead of a soft React Router `navigate`. This destroys React component state and is jarring UX. The guard (`!onAuthPage`) does not cover `/` (root). Correct fix: also suppress the redirect while `loading === true`, or use React Router `navigate` instead of `window.location.href`, or add `/` to the suppression list.
+- **`getTimezones()` is called on every render** of `SignupPage` without memoization. While not a correctness bug, `Intl.supportedValuesOf('timeZone')` returning 400+ strings on every render is wasteful. Hoist to module level or wrap in `useMemo`.
+- **`Intl.supportedValuesOf` TypeScript type gap**: The method is not in the default TS `lib.es2021` typings (it was added in ES2022). In strict projects this will be a type error unless `lib` is set to `ES2022+` or a `// @ts-ignore` is used. The `typeof` guard at runtime is correct but the TS compilation may fail depending on `tsconfig.json` `lib` setting.
+- **`successMessage` banner renders on the SignupPage itself** (via `location.state`), but the intended destination per the task spec is the LoginPage after redirect. The code correctly navigates to `/login` with state, but the `successMessage` check is in `SignupPage.tsx`, not `LoginPage.tsx`. This means the banner never appears — it would only show if `SignupPage` were navigated-to with that state, which never happens in the described flow.
+- **`aria-hidden` on the button spinner `<span>` should be `aria-hidden="true"`** (boolean string), not the bare JSX `aria-hidden` attribute without a value (which resolves to `true` in JSX but is worth flagging for clarity).
