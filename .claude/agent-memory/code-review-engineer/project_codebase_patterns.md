@@ -33,6 +33,19 @@ type: project
 - `@DirtiesContext(AFTER_EACH_TEST_METHOD)` is used for integration test isolation with in-memory SQLite. Correct approach; avoids shared state between tests at the cost of Spring context reload per test (slow at scale).
 - Test `signupUser()` helper discards the `MvcResult` and does not assert status — silently swallows signup failures, which can cause misleading test failures downstream.
 
+## OAuth / Token Patterns (established in TASK-007 google-auth, reviewed 2026-06-14)
+
+- `GoogleOAuthService` uses a stateless HMAC-SHA256 state parameter (`adminId:base64url(HMAC(adminId, encryptionKey))`) for CSRF prevention — no session state stored during OAuth flow, but the HMAC key is derived from the same raw key as `EncryptionService`. This dual use of a single key is an acceptable MVP trade-off but should be split into distinct keys in production.
+- `EncryptionService` uses AES-256-GCM with a random 12-byte nonce prepended to the ciphertext, base64-encoded. Key is derived via SHA-256 from the raw string property. Output format: `base64(nonce || ciphertext+GCM_tag)`. Standard and sound.
+- `GoogleOAuthService.hmacKeyBytes` is derived with `rawKey.getBytes(UTF_8)` directly (no SHA-256 step), while `EncryptionService` uses `SHA-256.digest(rawKey.getBytes(UTF_8))` for the AES key. Inconsistency in key derivation between the two consumers of `encryption.secret-key`.
+- **`/calendar/google/connect` is in Spring Security `permitAll()` list** — the session auth check is done manually via `SessionUtils.requireAdminId()` inside the controller. If `UnauthorizedException` is thrown, `GlobalExceptionHandler` returns a JSON 401 body, NOT a redirect. This is acceptable for an API but should be documented — the frontend must handle this gracefully.
+- **Refresh token null guard on reconnect**: When Google does not return a refresh token (e.g., re-authorization without `prompt=consent`), `handleCallback` encrypts an empty string `""` as the refresh token. This silently overwrites the existing (valid) encrypted refresh token with an encrypted empty string if `INSERT OR REPLACE` fires. `prompt=consent` is correctly set so Google should always return a new refresh token — but this edge case should be explicitly tested or documented.
+- **`INSERT OR REPLACE` upsert resets `is_primary` to `false`** because the new `CalendarAccount` record is always constructed with `isPrimary=false` in `handleCallback`. If the admin reconnects their primary calendar account, it loses primary status silently. No test covers this scenario.
+- **`keyHolder.getKey()` NPE risk in `JdbcCalendarAccountRepository.insert()`** — same pattern as `JdbcAdminRepository`. This is a recurring pattern in the codebase; both sites lack a null check before calling `.longValue()`.
+- **`JdbcCalendarAccountRepositoryTest` uses `@SpringBootTest`** — this loads the full Spring context including `GoogleOAuthService` and `GoogleTokenRefresher`, which require `google.client-id` and `google.client-secret`. Since `application.properties` defaults these to empty strings (`${GOOGLE_CLIENT_ID:}`), the context will boot but these beans will have empty credentials. This is fragile — if Google SDK validation is added to constructors, the test suite will break without a `@MockBean` for those services.
+- **`GoogleTokenRefresher` test gap**: No unit or integration test covers `refreshAccessToken`. AC-6 (`GoogleTokenRefresher.refreshAccessToken` returns a valid token when given an account with a valid refresh token) is therefore NOT verified by the test suite.
+- **`SecureRandom random = new SecureRandom()` as an instance field** in `EncryptionService` is correct and thread-safe. `SecureRandom` is thread-safe by spec.
+
 ## CLAUDE.md Rules Frequently Worth Checking
 
 - Availability logic must never call provider APIs — query `calendar_events` in SQLite only.

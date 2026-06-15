@@ -1,0 +1,160 @@
+package com.unifiedcalendar.calendar;
+
+import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeRequestUrl;
+import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeTokenRequest;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleTokenResponse;
+import com.google.api.client.http.HttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
+import com.unifiedcalendar.config.EncryptionService;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
+import java.util.Base64;
+import java.util.List;
+
+@Service
+public class GoogleOAuthService {
+
+    private static final List<String> SCOPES = List.of(
+            "openid",
+            "email",
+            "https://www.googleapis.com/auth/calendar.readonly",
+            "https://www.googleapis.com/auth/calendar.events"
+    );
+
+    private final String clientId;
+    private final String clientSecret;
+    private final String redirectUri;
+    private final byte[] hmacKeyBytes;
+    private final HttpTransport httpTransport;
+    private final EncryptionService encryptionService;
+    private final CalendarAccountRepository repository;
+
+    public GoogleOAuthService(
+            @Value("${google.client-id}") String clientId,
+            @Value("${google.client-secret}") String clientSecret,
+            @Value("${google.redirect-uri:http://localhost:8080/calendar/google/callback}") String redirectUri,
+            @Value("${encryption.secret-key}") String rawKey,
+            HttpTransport googleHttpTransport,
+            EncryptionService encryptionService,
+            CalendarAccountRepository repository) {
+        this.clientId = clientId;
+        this.clientSecret = clientSecret;
+        this.redirectUri = redirectUri;
+        // Domain-separated HMAC key: SHA-256("oauth-state-hmac:" || rawKey) so the key
+        // material is independent of the AES-256 key used by EncryptionService.
+        this.hmacKeyBytes = deriveHmacKey(rawKey);
+        this.httpTransport = googleHttpTransport;
+        this.encryptionService = encryptionService;
+        this.repository = repository;
+    }
+
+    /** Builds the Google OAuth2 authorization URL; the state parameter binds the request to adminId via HMAC to prevent CSRF. */
+    public String buildAuthorizationUrl(Long adminId) {
+        String state = buildState(adminId);
+        return new GoogleAuthorizationCodeRequestUrl(clientId, redirectUri, SCOPES)
+                .setState(state)
+                .setAccessType("offline")
+                .set("prompt", "consent")
+                .build();
+    }
+
+    /** Validates state, exchanges the code for tokens, extracts identity from the ID token, and upserts a calendar_account row. */
+    public CalendarAccount handleCallback(String code, String state) {
+        Long adminId = validateState(state);
+
+        GoogleTokenResponse tokenResponse;
+        try {
+            tokenResponse = new GoogleAuthorizationCodeTokenRequest(
+                    httpTransport, GsonFactory.getDefaultInstance(),
+                    clientId, clientSecret, code, redirectUri)
+                    .execute();
+        } catch (Exception e) {
+            throw new RuntimeException("Google token exchange failed", e);
+        }
+
+        GoogleIdToken.Payload payload;
+        try {
+            payload = tokenResponse.parseIdToken().getPayload();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse Google ID token", e);
+        }
+
+        String sub          = payload.getSubject();
+        String email        = payload.getEmail();
+        String accessToken  = tokenResponse.getAccessToken();
+        String refreshToken = tokenResponse.getRefreshToken();
+
+        // Google only returns a refresh token on the first authorization or after access has been revoked.
+        // Storing an empty token would cause silent failures on the next refresh attempt.
+        if (refreshToken == null) {
+            throw new IllegalStateException(
+                    "Google did not return a refresh token. Ensure access_type=offline and prompt=consent " +
+                    "are set, or revoke access at https://myaccount.google.com/permissions and reconnect.");
+        }
+
+        CalendarAccount account = new CalendarAccount(
+                null, adminId, "GOOGLE", sub, email,
+                encryptionService.encrypt(accessToken),
+                encryptionService.encrypt(refreshToken),
+                false, Instant.now(), null);
+        return repository.save(account);
+    }
+
+    // state = "{adminId}:{base64url(HMAC-SHA256(adminId, hmacKey))}" — stateless CSRF prevention
+    private String buildState(Long adminId) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(hmacKeyBytes, "HmacSHA256"));
+            byte[] hmac = mac.doFinal(adminId.toString().getBytes(StandardCharsets.UTF_8));
+            return adminId + ":" + Base64.getUrlEncoder().withoutPadding().encodeToString(hmac);
+        } catch (Exception e) {
+            throw new RuntimeException("State generation failed", e);
+        }
+    }
+
+    private Long validateState(String state) {
+        int colon = state.lastIndexOf(':');
+        if (colon < 0) throw new IllegalArgumentException("Malformed OAuth state");
+        String adminIdStr   = state.substring(0, colon);
+        String receivedHmac = state.substring(colon + 1);
+        Long adminId;
+        try {
+            adminId = Long.parseLong(adminIdStr);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Malformed OAuth state");
+        }
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(hmacKeyBytes, "HmacSHA256"));
+            byte[] expected = mac.doFinal(adminIdStr.getBytes(StandardCharsets.UTF_8));
+            byte[] received = Base64.getUrlDecoder().decode(receivedHmac);
+            if (!MessageDigest.isEqual(expected, received)) {
+                throw new IllegalArgumentException("Invalid OAuth state signature");
+            }
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("State validation failed", e);
+        }
+        return adminId;
+    }
+
+    private static byte[] deriveHmacKey(String rawKey) {
+        try {
+            MessageDigest sha = MessageDigest.getInstance("SHA-256");
+            sha.update("oauth-state-hmac:".getBytes(StandardCharsets.UTF_8));
+            return sha.digest(rawKey.getBytes(StandardCharsets.UTF_8));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 not available", e);
+        }
+    }
+}
