@@ -95,7 +95,7 @@ public class JdbcCalendarAccountRepository implements CalendarAccountRepository 
     }
 
     private CalendarAccount update(CalendarAccount account) {
-        jdbc.update(
+        int updatedRows = jdbc.update(
                 "UPDATE calendar_accounts SET " +
                 "email = ?, encrypted_access_token = ?, encrypted_refresh_token = ?, " +
                 "is_primary = ?, last_sync_at = ? " +
@@ -107,6 +107,9 @@ public class JdbcCalendarAccountRepository implements CalendarAccountRepository 
                 account.lastSyncAt() != null ? account.lastSyncAt().toString() : null,
                 account.id(),
                 account.adminId());
-        return account;
+        if (updatedRows == 0) {
+            throw new IllegalArgumentException("Calendar account not found for admin");
+        }
+        return findById(account.id(), account.adminId()).orElseThrow();
     }
 }
