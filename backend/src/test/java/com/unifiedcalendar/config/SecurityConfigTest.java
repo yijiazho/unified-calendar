@@ -10,7 +10,9 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -78,6 +80,22 @@ class SecurityConfigTest {
         @DisplayName("/calendar/accounts returns 401 without session")
         void calendarAccountsRequiresAuth() throws Exception {
             mvc.perform(get("/calendar/accounts"))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @DisplayName("DELETE /calendar/accounts/{id} returns 401 without session")
+        void deleteCalendarAccountRequiresAuth() throws Exception {
+            mvc.perform(delete("/calendar/accounts/1"))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @DisplayName("PUT /calendar/primary returns 401 without session")
+        void setPrimaryRequiresAuth() throws Exception {
+            mvc.perform(put("/calendar/primary")
+                            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                            .content("{\"accountId\":1}"))
                     .andExpect(status().isUnauthorized());
         }
     }

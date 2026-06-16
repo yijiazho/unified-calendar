@@ -23,7 +23,8 @@ import java.util.Map;
 public class OutlookOAuthService {
 
     private static final long STATE_TTL_SECONDS = 10 * 60;
-    private static final String SCOPE =
+    // Package-private so OutlookTokenRefresher can reference the same string and avoid drift.
+    static final String SCOPE =
             "https://graph.microsoft.com/Calendars.Read " +
             "https://graph.microsoft.com/Calendars.ReadWrite " +
             "offline_access User.Read";
@@ -62,7 +63,7 @@ public class OutlookOAuthService {
     public String buildAuthorizationUrl(Long adminId) {
         String state = buildState(adminId);
         return UriComponentsBuilder
-                .fromHttpUrl("https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize")
+                .fromUriString("https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize")
                 .queryParam("client_id", clientId)
                 .queryParam("response_type", "code")
                 .queryParam("redirect_uri", redirectUri)
@@ -96,6 +97,14 @@ public class OutlookOAuthService {
         }
         String accessToken = (String) tokenResponse.get("access_token");
         String refreshToken = (String) tokenResponse.get("refresh_token");
+
+        // Microsoft omits refresh_token when offline_access was not granted or the token was already issued.
+        // Storing null would cause a NullPointerException in EncryptionService on the next sync.
+        if (refreshToken == null) {
+            throw new IllegalStateException(
+                    "Microsoft did not return a refresh token. Ensure offline_access is in the scope, " +
+                    "or revoke access at https://myaccount.microsoft.com/permissions and reconnect.");
+        }
 
         Map<String, Object> me = restClient.get()
                 .uri("https://graph.microsoft.com/v1.0/me")

@@ -17,7 +17,6 @@ public class OutlookTokenRefresher {
     private final String clientId;
     private final String clientSecret;
     private final String tenantId;
-    private final String scope;
     private final EncryptionService encryptionService;
     private final CalendarAccountRepository repository;
     private final RestClient restClient;
@@ -32,9 +31,6 @@ public class OutlookTokenRefresher {
         this.clientId = clientId;
         this.clientSecret = clientSecret;
         this.tenantId = tenantId.isBlank() ? "common" : tenantId;
-        this.scope = "https://graph.microsoft.com/Calendars.Read " +
-                     "https://graph.microsoft.com/Calendars.ReadWrite " +
-                     "offline_access User.Read";
         this.encryptionService = encryptionService;
         this.repository = repository;
         this.restClient = restClient;
@@ -50,7 +46,7 @@ public class OutlookTokenRefresher {
         tokenParams.add("refresh_token", refreshToken);
         tokenParams.add("client_id", clientId);
         tokenParams.add("client_secret", clientSecret);
-        tokenParams.add("scope", scope);
+        tokenParams.add("scope", OutlookOAuthService.SCOPE);
 
         Map<String, Object> tokenResponse = restClient.post()
                 .uri("https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token", tenantId)
@@ -63,12 +59,18 @@ public class OutlookTokenRefresher {
             throw new RuntimeException("Microsoft token endpoint returned empty response");
         }
         String newAccessToken = (String) tokenResponse.get("access_token");
+        // Microsoft may return a new refresh token (rolling refresh token policy). Persist it when
+        // present so the next refresh uses the latest token; fall back to the existing one if absent.
+        String newRefreshToken = (String) tokenResponse.get("refresh_token");
+        String encryptedRefreshToken = newRefreshToken != null
+                ? encryptionService.encrypt(newRefreshToken)
+                : account.encryptedRefreshToken();
 
         CalendarAccount updated = new CalendarAccount(
                 account.id(), account.adminId(), account.provider(),
                 account.providerAccountId(), account.email(),
                 encryptionService.encrypt(newAccessToken),
-                account.encryptedRefreshToken(),
+                encryptedRefreshToken,
                 account.isPrimary(), account.connectedAt(), account.lastSyncAt());
         repository.save(updated);
         return newAccessToken;

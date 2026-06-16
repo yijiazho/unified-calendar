@@ -127,6 +127,25 @@ class OutlookTokenRefresherTest {
         assertEquals("valid-refresh-token", encryptionService.decrypt(updated.encryptedRefreshToken()));
     }
 
+    @Test
+    @DisplayName("refreshAccessToken persists a new refresh token when Microsoft returns one (rolling token policy)")
+    void refreshPersistsNewRefreshToken() {
+        MockRestClientConfig.mockServer
+                .expect(requestTo(org.hamcrest.Matchers.containsString("/oauth2/v2.0/token")))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess(
+                        "{\"access_token\":\"new-access-token\",\"refresh_token\":\"new-refresh-token\"," +
+                        "\"token_type\":\"Bearer\",\"expires_in\":3600}",
+                        MediaType.APPLICATION_JSON));
+
+        CalendarAccount account = savedAccount("oid-r4");
+        refresher.refreshAccessToken(account);
+
+        CalendarAccount updated = repository.findById(account.id(), adminId).orElseThrow();
+        assertEquals("new-refresh-token", encryptionService.decrypt(updated.encryptedRefreshToken()),
+                "new refresh token from Microsoft must be persisted to avoid invalid_grant on next refresh");
+    }
+
     private CalendarAccount savedAccount(String oid) {
         return repository.save(new CalendarAccount(
                 null, adminId, "OUTLOOK", oid, "user@outlook.com",
