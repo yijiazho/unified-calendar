@@ -14,6 +14,7 @@ services:
       ENCRYPTION_SECRET_KEY: ${ENCRYPTION_SECRET_KEY}
       RESEND_API_KEY: ${RESEND_API_KEY}
       DB_PATH: /app/data/unified-calendar.db
+      APP_BASE_URL: http://localhost
     env_file:
       - .env
     healthcheck:

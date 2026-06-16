@@ -114,6 +114,10 @@ Before writing any code, read the task file under `doc/tasks/`. Each task file h
 - Read every file with the `Read` tool before editing it.
 - Confirm with the user before any destructive action (deleting files, dropping tables, force-pushing).
 
+### Knowledge Base
+
+After completing any code changes (backend or frontend), invoke `/update-kb` to keep the knowledge base current. This ensures future agents start with accurate patterns, fixed risks are removed, and new watch points are recorded.
+
 ---
 
 ## Running Locally
