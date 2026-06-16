@@ -24,6 +24,7 @@ import java.util.List;
 @Service
 public class GoogleOAuthService {
 
+    private static final long STATE_TTL_SECONDS = 10 * 60; // 10 minutes
     private static final List<String> SCOPES = List.of(
             "openid",
             "email",
@@ -122,33 +123,51 @@ public class GoogleOAuthService {
         return repository.save(account);
     }
 
-    // state = "{adminId}:{base64url(HMAC-SHA256(adminId, hmacKey))}" — stateless CSRF prevention
+    // state = "{adminId}:{issuedAt}:{base64url(HMAC-SHA256("{adminId}:{issuedAt}", hmacKey))}"
+    // issuedAt is epoch seconds; validated against STATE_TTL_SECONDS in validateState.
     private String buildState(Long adminId) {
+        long issuedAt = Instant.now().getEpochSecond();
+        String data = adminId + ":" + issuedAt;
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(hmacKeyBytes, "HmacSHA256"));
-            byte[] hmac = mac.doFinal(adminId.toString().getBytes(StandardCharsets.UTF_8));
-            return adminId + ":" + Base64.getUrlEncoder().withoutPadding().encodeToString(hmac);
+            byte[] hmac = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+            return data + ":" + Base64.getUrlEncoder().withoutPadding().encodeToString(hmac);
         } catch (Exception e) {
             throw new RuntimeException("State generation failed", e);
         }
     }
 
     private Long validateState(String state) {
-        int colon = state.lastIndexOf(':');
-        if (colon < 0) throw new IllegalArgumentException("Malformed OAuth state");
-        String adminIdStr   = state.substring(0, colon);
-        String receivedHmac = state.substring(colon + 1);
+        // state format: {adminId}:{issuedAt}:{base64url(HMAC)}
+        int lastColon = state.lastIndexOf(':');
+        if (lastColon < 0) throw new IllegalArgumentException("Malformed OAuth state");
+        String receivedHmac = state.substring(lastColon + 1);
+        String data         = state.substring(0, lastColon); // "{adminId}:{issuedAt}"
+
+        int firstColon = data.indexOf(':');
+        if (firstColon < 0) throw new IllegalArgumentException("Malformed OAuth state");
+        String adminIdStr  = data.substring(0, firstColon);
+        String issuedAtStr = data.substring(firstColon + 1);
+
         Long adminId;
         try {
             adminId = Long.parseLong(adminIdStr);
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Malformed OAuth state");
         }
+        long issuedAt;
+        try {
+            issuedAt = Long.parseLong(issuedAtStr);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Malformed OAuth state");
+        }
+
+        // Verify HMAC first — reject forgeries before revealing TTL information
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(hmacKeyBytes, "HmacSHA256"));
-            byte[] expected = mac.doFinal(adminIdStr.getBytes(StandardCharsets.UTF_8));
+            byte[] expected = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
             byte[] received = Base64.getUrlDecoder().decode(receivedHmac);
             if (!MessageDigest.isEqual(expected, received)) {
                 throw new IllegalArgumentException("Invalid OAuth state signature");
@@ -158,6 +177,16 @@ public class GoogleOAuthService {
         } catch (Exception e) {
             throw new RuntimeException("State validation failed", e);
         }
+
+        // Enforce TTL only after the signature is verified
+        long now = Instant.now().getEpochSecond();
+        if (now - issuedAt > STATE_TTL_SECONDS) {
+            throw new IllegalArgumentException("OAuth state has expired");
+        }
+        if (issuedAt > now + 60) {
+            throw new IllegalArgumentException("OAuth state timestamp is in the future");
+        }
+
         return adminId;
     }
 
