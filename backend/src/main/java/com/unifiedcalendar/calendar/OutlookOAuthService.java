@@ -17,6 +17,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.Base64;
+import org.springframework.core.ParameterizedTypeReference;
+
 import java.util.Map;
 
 @Service
@@ -74,7 +76,6 @@ public class OutlookOAuthService {
     }
 
     /** Validates state, exchanges the code for tokens, retrieves the user's oid and email via Graph, and upserts a calendar_account row. */
-    @SuppressWarnings("unchecked")
     public CalendarAccount handleCallback(String code, String state) {
         Long adminId = validateState(state);
 
@@ -90,7 +91,7 @@ public class OutlookOAuthService {
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(tokenParams)
                 .retrieve()
-                .body(Map.class);
+                .body(new ParameterizedTypeReference<Map<String, Object>>() {});
 
         if (tokenResponse == null) {
             throw new RuntimeException("Microsoft token endpoint returned empty response");
@@ -110,7 +111,7 @@ public class OutlookOAuthService {
                 .uri("https://graph.microsoft.com/v1.0/me")
                 .header("Authorization", "Bearer " + accessToken)
                 .retrieve()
-                .body(Map.class);
+                .body(new ParameterizedTypeReference<Map<String, Object>>() {});
 
         if (me == null) {
             throw new RuntimeException("Microsoft Graph /me returned empty response");

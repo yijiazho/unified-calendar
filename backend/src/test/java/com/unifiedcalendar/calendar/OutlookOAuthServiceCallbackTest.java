@@ -138,8 +138,12 @@ class OutlookOAuthServiceCallbackTest {
     void handleCallback_rejectsTamperedState() {
         // No mock expectations set — if any HTTP call were made the test would fail on unexpected request.
         String validState = service.buildState(adminId);
-        String tampered = validState.substring(0, validState.length() - 1) +
-                (validState.charAt(validState.length() - 1) == 'A' ? 'B' : 'A');
+        // Tamper the second-to-last character: for a 32-byte HMAC the final base64url char's
+        // lowest 2 bits are unused, so 'A'↔'B' produces identical decoded bytes. Any earlier
+        // character has all 6 bits used and will always change the decoded HMAC.
+        int idx = validState.length() - 2;
+        char c = validState.charAt(idx);
+        String tampered = validState.substring(0, idx) + (c == 'A' ? 'B' : 'A') + validState.substring(idx + 1);
 
         assertThrows(IllegalArgumentException.class,
                 () -> service.handleCallback("dummy-code", tampered));

@@ -3,6 +3,7 @@ package com.unifiedcalendar.calendar;
 import com.unifiedcalendar.config.EncryptionService;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
@@ -37,7 +38,6 @@ public class OutlookTokenRefresher {
     }
 
     /** Fetches a new access token using the stored refresh token, persists the encrypted value, and returns the plaintext token for immediate use. */
-    @SuppressWarnings("unchecked")
     public String refreshAccessToken(CalendarAccount account) {
         String refreshToken = encryptionService.decrypt(account.encryptedRefreshToken());
 
@@ -53,7 +53,7 @@ public class OutlookTokenRefresher {
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(tokenParams)
                 .retrieve()
-                .body(Map.class);
+                .body(new ParameterizedTypeReference<Map<String, Object>>() {});
 
         if (tokenResponse == null) {
             throw new RuntimeException("Microsoft token endpoint returned empty response");

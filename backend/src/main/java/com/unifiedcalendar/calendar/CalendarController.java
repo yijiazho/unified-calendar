@@ -82,6 +82,9 @@ public class CalendarController {
         } catch (IllegalArgumentException e) {
             log.warn("Outlook OAuth callback rejected — invalid state parameter: {}", e.getMessage());
             response.sendRedirect(frontendBaseUrl + "/settings/calendars?error=outlook_oauth_failed");
+        } catch (IllegalStateException e) {
+            log.error("Outlook OAuth callback failed — token issue: {}", e.getMessage());
+            response.sendRedirect(frontendBaseUrl + "/settings/calendars?error=outlook_oauth_failed");
         } catch (Exception e) {
             log.error("Outlook OAuth callback failed", e);
             response.sendRedirect(frontendBaseUrl + "/settings/calendars?error=outlook_oauth_failed");
@@ -111,6 +114,9 @@ public class CalendarController {
             @RequestBody SetPrimaryRequest request,
             HttpSession session) {
         Long adminId = SessionUtils.requireAdminId(session);
+        // Note: findById and setPrimary are separate transactions.
+        // Acceptable for MVP single-session use; consolidate into a single transactional
+        // service method if concurrent admin sessions are introduced in Phase 2.
         repository.findById(request.accountId(), adminId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Calendar account not found"));

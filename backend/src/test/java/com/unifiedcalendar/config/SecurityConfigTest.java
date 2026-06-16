@@ -98,5 +98,12 @@ class SecurityConfigTest {
                             .content("{\"accountId\":1}"))
                     .andExpect(status().isUnauthorized());
         }
+
+        @Test
+        @DisplayName("GET /calendar/outlook/connect returns 401 without session")
+        void outlookConnectRequiresAuth() throws Exception {
+            mvc.perform(get("/calendar/outlook/connect"))
+                    .andExpect(status().isUnauthorized());
+        }
     }
 }
