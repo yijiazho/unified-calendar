@@ -46,8 +46,9 @@ public class SecurityConfig {
                     "/bookings/*/cancel",
                     "/bookings/*/reschedule",
                     "/actuator/health",
-                    // Callback is secured by the HMAC-signed state parameter rather than session.
-                    "/calendar/google/callback"
+                    // Callbacks are secured by the HMAC-signed state parameter rather than session.
+                    "/calendar/google/callback",
+                    "/calendar/outlook/callback"
                 ).permitAll()
                 .anyRequest().authenticated()
             )
