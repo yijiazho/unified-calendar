@@ -3,6 +3,7 @@ package com.unifiedcalendar.calendar;
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeRequestUrl;
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeTokenRequest;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.googleapis.auth.oauth2.GoogleTokenResponse;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
@@ -35,6 +36,7 @@ public class GoogleOAuthService {
     private final String redirectUri;
     private final byte[] hmacKeyBytes;
     private final HttpTransport httpTransport;
+    private final GoogleIdTokenVerifier idTokenVerifier;
     private final EncryptionService encryptionService;
     private final CalendarAccountRepository repository;
 
@@ -53,6 +55,10 @@ public class GoogleOAuthService {
         // material is independent of the AES-256 key used by EncryptionService.
         this.hmacKeyBytes = deriveHmacKey(rawKey);
         this.httpTransport = googleHttpTransport;
+        // Verifier is built once; Google's public keys are fetched lazily on first use and cached.
+        this.idTokenVerifier = new GoogleIdTokenVerifier.Builder(googleHttpTransport, GsonFactory.getDefaultInstance())
+                .setAudience(List.of(clientId))
+                .build();
         this.encryptionService = encryptionService;
         this.repository = repository;
     }
@@ -83,9 +89,16 @@ public class GoogleOAuthService {
 
         GoogleIdToken.Payload payload;
         try {
-            payload = tokenResponse.parseIdToken().getPayload();
+            GoogleIdToken verified = idTokenVerifier.verify(tokenResponse.getIdToken());
+            if (verified == null) {
+                // null means signature, audience, issuer, or expiry check failed
+                throw new RuntimeException("Google ID token verification failed — untrusted token");
+            }
+            payload = verified.getPayload();
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
-            throw new RuntimeException("Failed to parse Google ID token", e);
+            throw new RuntimeException("Google ID token verification failed", e);
         }
 
         String sub          = payload.getSubject();
