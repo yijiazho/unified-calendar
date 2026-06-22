@@ -17,7 +17,7 @@ Each task lists what must be done before it can start.
 | TASK-009 FE calendar-connect | 003, 006, 007, 008 | ✓ |
 | TASK-010 BE working-hours | 002, 004, 005 | ✓ |
 | TASK-011 FE working-hours | 003, 006, 010 | ✓ |
-| TASK-012 BE calendar-sync | 002, 004, 007, 008 | |
+| TASK-012 BE calendar-sync | 002, 004, 007, 008 | ✓ |
 | TASK-013 BE unified-calendar-api | 002, 004, 012 | |
 | TASK-014 FE unified-calendar-view | 003, 006, 013 | |
 | TASK-015 BE availability-engine | 004, 010, 012 | |
@@ -62,7 +62,7 @@ Wave 5  ────────────────────────
     020 BE email-service
 
 Wave 6  ──────────────────────────────────────────────────────────────────
-  ✓ 009 FE calendar-connect     012 BE calendar-sync
+  ✓ 009 FE calendar-connect   ✓ 012 BE calendar-sync
 
 Wave 7  ──────────────────────────────────────────────────────────────────
   013 BE unified-calendar-api    015 BE availability-engine
@@ -137,7 +137,7 @@ Admin configures Monday–Friday 9–5. Both saved states survive a page refresh
 ### Milestone 3 — Unified calendar view (Phase 1 complete)
 
 ```
-12. TASK-012  BE calendar sync engine
+12. ✓ TASK-012  BE calendar sync engine
 13. TASK-013  BE unified calendar API
 14. TASK-014  FE unified calendar view
 ```
@@ -218,7 +218,7 @@ in the admin's calendar → both receive updated emails with new ICS.
 | 9 | TASK-008 BE outlook-oauth | BE | 2 | ✓ |
 | 10 | TASK-009 FE calendar-connect | FE | 2 | ✓ |
 | 11 | TASK-011 FE working-hours | FE | 2 | ✓ |
-| 12 | TASK-012 BE calendar-sync | BE | 3 | |
+| 12 | TASK-012 BE calendar-sync | BE | 3 | ✓ |
 | 13 | TASK-013 BE unified-calendar-api | BE | 3 | |
 | 14 | TASK-014 FE unified-calendar-view | FE | 3 | |
 | 15 | TASK-015 BE availability-engine | BE | 4 | |

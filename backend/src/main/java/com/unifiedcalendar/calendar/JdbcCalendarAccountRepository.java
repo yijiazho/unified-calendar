@@ -36,6 +36,11 @@ public class JdbcCalendarAccountRepository implements CalendarAccountRepository 
     }
 
     @Override
+    public List<CalendarAccount> findAll() {
+        return jdbc.query("SELECT * FROM calendar_accounts ORDER BY id", ROW_MAPPER);
+    }
+
+    @Override
     public List<CalendarAccount> findAllByAdminId(Long adminId) {
         return jdbc.query(
                 "SELECT * FROM calendar_accounts WHERE admin_id = ? ORDER BY connected_at",
