@@ -69,6 +69,14 @@ class WorkingHoursServiceTest {
     }
 
     @Test
+    @DisplayName("saveWorkingHours with null entry throws ValidationException")
+    void saveNullEntryThrows() {
+        List<WorkingHoursDto> dtos = new ArrayList<>();
+        dtos.add(null);
+        assertThrows(ValidationException.class, () -> service.saveWorkingHours(adminId, dtos));
+    }
+
+    @Test
     @DisplayName("saveWorkingHours with null dayOfWeek throws ValidationException")
     void saveNullDayOfWeekThrows() {
         List<WorkingHoursDto> dtos = List.of(new WorkingHoursDto(null, "09:00", "17:00"));

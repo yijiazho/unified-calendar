@@ -45,6 +45,9 @@ public class WorkingHoursService {
         }
         Set<Integer> seen = new HashSet<>();
         for (WorkingHoursDto dto : dtos) {
+            if (dto == null) {
+                throw new ValidationException("Working-hours entry must not be null");
+            }
             if (dto.dayOfWeek() == null) {
                 throw new ValidationException("dayOfWeek is required");
             }

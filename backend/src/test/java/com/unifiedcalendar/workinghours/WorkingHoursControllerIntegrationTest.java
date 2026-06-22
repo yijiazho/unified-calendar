@@ -147,8 +147,33 @@ class WorkingHoursControllerIntegrationTest {
                 .andExpect(jsonPath("$.length()").value(5));
     }
 
-    // ─── helpers ────────────────────────────────────────────────────────────────
+    @Test
+    @DisplayName("PUT /working-hours with literal null body returns 400")
+    void putNullBodyReturns400() throws Exception {
+        MockHttpSession session = signupAndLogin("h@example.com", "pass", "slug-h");
 
+        mvc.perform(put(WORKING_HOURS_URL)
+                        .session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("null"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Request body must not be null"));
+    }
+
+    @Test
+    @DisplayName("PUT /working-hours with missing dayOfWeek returns 400")
+    void putMissingDayOfWeekReturns400() throws Exception {
+        MockHttpSession session = signupAndLogin("i@example.com", "pass", "slug-i");
+
+        mvc.perform(put(WORKING_HOURS_URL)
+                        .session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("[{\"startTime\":\"09:00\",\"endTime\":\"17:00\"}]"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("dayOfWeek is required"));
+    }
+
+    // ─── helpers ────────────────────────────────────────────────────────────────
     private MockHttpSession signupAndLogin(String email, String password, String slug) throws Exception {
         mvc.perform(post(SIGNUP_URL)
                         .contentType(MediaType.APPLICATION_JSON)
