@@ -10,6 +10,7 @@ export interface CalendarAccount {
   provider: 'GOOGLE' | 'OUTLOOK'
   email: string
   isPrimary: boolean
+  connectedAt: string
 }
 
 export interface CalendarEvent {

@@ -84,7 +84,7 @@ type: project
 **Why:** These are architecture invariants that, if violated early, cause painful refactors and data integrity bugs in production.
 **How to apply:** Flag immediately as Critical if any of these appear in a diff.
 
-## Frontend Conventions (established in TASK-003 scaffold, reviewed 2026-06-10; updated TASK-006 FE auth, reviewed 2026-06-13)
+## Frontend Conventions (established in TASK-003 scaffold, reviewed 2026-06-10; updated TASK-006 FE auth, reviewed 2026-06-13; updated TASK-009 FE calendar connect, 2026-06-21)
 
 - Two Axios instances in `src/api/`: `client.ts` (baseURL `/api`, `withCredentials: true`) for admin endpoints, and `publicClient.ts` (baseURL `/api`, `withCredentials: false`) for visitor endpoints. Public API modules (`availability.ts`, `bookings.ts`) correctly import `publicClient` to avoid the 401-redirect interceptor.
 - As of TASK-006: `client.ts` NOW HAS the 401 interceptor (`window.location.href = '/login'` on 401). It guards auth pages via `window.location.pathname` check to avoid redirect loops. This resolves the prior gap noted in TASK-003 review.
@@ -97,6 +97,14 @@ type: project
 - `LoginPage` uses both `useNavigate` from react-router-dom AND the `login()` action from `useAuth()`. The `navigate('/dashboard')` call in `AuthContext.login()` makes the `useNavigate` import in `LoginPage` redundant for the happy path, but it is used only in the `useEffect` guard (already-authenticated redirect). Both are necessary.
 - `Spinner` component exists (`src/components/Spinner.tsx`) and is used in `ProtectedRoute` and `LoginPage`. `role="status"` + `aria-label="Loading"` present for accessibility.
 - `Modal` component has an accessibility bug: outer wrapper uses `role="presentation"` but the click-to-close overlay should be `role="dialog"` or have no role; the inner div correctly has `role="dialog"` + `aria-modal="true"` but no accessible label (`aria-labelledby` or `aria-label` missing).
+- **`calendar.ts` API endpoint prefix is `/calendar` (singular)**, not `/calendars` (plural). `getAccounts`, `disconnectAccount`, and `setPrimary` all use `/calendar/…`. The exception is `getEvents`, which still points to `/calendars/events` — this is a likely path mismatch for the dashboard feature; verify the backend route before implementing the dashboard view (TASK-011).
+- **`connectGoogle` and `connectOutlook` use `window.location.href`**, not Axios. This is intentional — OAuth initiation requires a real browser redirect to let the backend set cookies and then redirect to the provider. Replacing with `axios.get()` would break OAuth because the browser would not follow the redirect chain from `fetch`/XHR.
+- **OAuth error return pattern**: `CalendarConnectPage` reads `?error=` from `window.location.search` on mount, shows an error banner, and clears the param via `window.history.replaceState({}, '', pathname)`. This is the established pattern for backend-signalled OAuth failure. Future pages with OAuth return flows should replicate it.
+- **`CalendarAccount.connectedAt`** is the field returned by `CalendarAccountResponse` (representing the initial OAuth connect timestamp, not a sync timestamp). The UI labels it "Connected X ago" using a `relativeTime()` helper. The task spec said "last synced" but the backend only tracks `connectedAt` — there is no `lastSyncedAt` field. Do not add one unless the backend exposes it.
+- **`relativeTime()` is computed at render time with `Date.now()`** and does not auto-refresh. If the component stays mounted for a long time, displayed times will drift without re-rendering. Acceptable for MVP; flag if the requirement changes to live-updating relative timestamps.
+- **`useCallback` on `fetchAccounts`** in `CalendarConnectPage` is the correct pattern when a fetch function is listed in a `useEffect` dependency array — without it, the function reference changes every render and triggers an infinite effect loop. Any future data-fetching `useEffect` in this codebase should follow this pattern.
+- **`actionInProgress` gates both "Set as Primary" and "Disconnect" actions** — while one is in flight, both buttons are disabled. This prevents a second mutation from racing with the first but also means unrelated actions block each other. Acceptable for MVP; flag if fine-grained per-action loading is ever needed.
+- **`NavLink` with function-form `style` prop** (`style={({ isActive }) => ...}`) is the pattern for sidebar nav active state styling. Do not use a CSS class toggle — the inline style pattern is consistent with the rest of the settings pages.
 
 ### Known Bugs / Risks Found in TASK-006 FE Auth Review
 

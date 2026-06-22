@@ -18,7 +18,7 @@ export default function Modal({ open, onClose, children }: ModalProps) {
       <div
         role="dialog"
         aria-modal="true"
-        style={{ position: 'relative', zIndex: 51 }}
+        style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 51 }}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
