@@ -100,12 +100,16 @@ resend.api-key=
 ### Admin APIs
 
 ```
+POST   /auth/signup
 POST   /auth/login
+POST   /auth/logout
+GET    /auth/me
 GET    /calendar/accounts
-POST   /calendar/google/connect
-POST   /calendar/outlook/connect
+GET    /calendar/google/connect
+GET    /calendar/outlook/connect
 DELETE /calendar/accounts/{id}
 PUT    /calendar/primary
+GET    /working-hours
 PUT    /working-hours
 GET    /calendar/events
 ```
