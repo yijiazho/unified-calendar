@@ -145,6 +145,30 @@ class JdbcCalendarAccountRepositoryTest {
     }
 
     @Test
+    @DisplayName("delete cascades to calendar_events via FK — PRAGMA foreign_keys must be ON")
+    void deleteAccountCascadesToEvents() {
+        CalendarAccount account = repository.save(new CalendarAccount(null, adminId, "GOOGLE", "sub-cascade",
+                "cascade@gmail.com", "tok", "ref", false, Instant.now(), null));
+
+        jdbc.update(
+                "INSERT INTO calendar_events " +
+                "(admin_id, calendar_account_id, provider, provider_event_id, title, start_time_utc, end_time_utc) " +
+                "VALUES (?, ?, 'GOOGLE', 'evt-001', 'Test Event', '2024-01-01T09:00:00Z', '2024-01-01T10:00:00Z')",
+                adminId, account.id());
+        Integer eventCount = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM calendar_events WHERE calendar_account_id = ?",
+                Integer.class, account.id());
+        assertEquals(1, eventCount, "event must exist before account deletion");
+
+        repository.delete(account.id(), adminId);
+
+        Integer afterCount = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM calendar_events WHERE calendar_account_id = ?",
+                Integer.class, account.id());
+        assertEquals(0, afterCount, "calendar_events must be cascade-deleted when account is deleted");
+    }
+
+    @Test
     @DisplayName("save with non-null id updates the existing row")
     void saveWithIdUpdatesRow() {
         CalendarAccount inserted = repository.save(new CalendarAccount(null, adminId, "GOOGLE", "sub-upd",
