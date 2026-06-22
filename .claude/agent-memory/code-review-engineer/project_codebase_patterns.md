@@ -84,7 +84,7 @@ type: project
 **Why:** These are architecture invariants that, if violated early, cause painful refactors and data integrity bugs in production.
 **How to apply:** Flag immediately as Critical if any of these appear in a diff.
 
-## Frontend Conventions (established in TASK-003 scaffold, reviewed 2026-06-10; updated TASK-006 FE auth, reviewed 2026-06-13; updated TASK-009 FE calendar connect, 2026-06-21)
+## Frontend Conventions (established in TASK-003 scaffold, reviewed 2026-06-10; updated TASK-006 FE auth, reviewed 2026-06-13; updated TASK-009 FE calendar connect, 2026-06-21; updated TASK-011 FE working-hours, 2026-06-21)
 
 - Two Axios instances in `src/api/`: `client.ts` (baseURL `/api`, `withCredentials: true`) for admin endpoints, and `publicClient.ts` (baseURL `/api`, `withCredentials: false`) for visitor endpoints. Public API modules (`availability.ts`, `bookings.ts`) correctly import `publicClient` to avoid the 401-redirect interceptor.
 - As of TASK-006: `client.ts` NOW HAS the 401 interceptor (`window.location.href = '/login'` on 401). It guards auth pages via `window.location.pathname` check to avoid redirect loops. This resolves the prior gap noted in TASK-003 review.
@@ -105,6 +105,14 @@ type: project
 - **`useCallback` on `fetchAccounts`** in `CalendarConnectPage` is the correct pattern when a fetch function is listed in a `useEffect` dependency array — without it, the function reference changes every render and triggers an infinite effect loop. Any future data-fetching `useEffect` in this codebase should follow this pattern.
 - **`actionInProgress` prevents concurrent mutations** by guarding the mutation handlers; the disconnect confirmation modal buttons are disabled while the request is in flight. The account-card buttons are not currently disabled, so guard conditions must remain in place to prevent duplicate requests.
 - **`NavLink` with function-form `style` prop** (`style={({ isActive }) => ...}`) is the pattern for sidebar nav active state styling. Do not use a CSS class toggle — the inline style pattern is consistent with the rest of the settings pages.
+
+### Working Hours Page Patterns (TASK-011, 2026-06-21)
+
+- **`isDirty` via `JSON.stringify` comparison** — `WorkingHoursPage` compares `JSON.stringify(form)` vs `JSON.stringify(savedForm)` to detect unsaved changes. This works because `buildFormState` always produces objects with keys in a fixed order (`enabled`, `startTime`, `endTime`). If future form state ever includes `Date`, `Set`, `Map`, or undefined values, `JSON.stringify` silently drops or misrepresents them and the dirty check breaks without error.
+- **`savedForm` snapshots last-sent payload, not last-fetched state** — After a successful PUT, `setSavedForm(form)` is called without re-fetching from the backend. If the backend normalizes submitted data (e.g., strips seconds from `HH:MM:SS`, reorders fields), the local "saved" state will diverge from the backend and `isDirty` will be false even though the stored and displayed values differ. Flag any future backend transformation that alters the response shape.
+- **Frontend validation mirrors backend lexicographic comparison** — `validate()` in `WorkingHoursPage` uses `row.startTime >= row.endTime` (same logic as `WorkingHoursService.validate()` in Java). Both sides rely on zero-padded `HH:MM` format. If either side relaxes format validation (e.g., allows `9:00`), both comparisons must be updated together or client and server will disagree on what constitutes a valid range.
+- **`beforeunload` custom message is silently ignored in modern browsers** — Chrome 51+ and Firefox 44+ display a generic browser dialog and discard any custom `e.returnValue` string for security reasons. The `beforeunload` handler correctly prevents accidental navigation but cannot show a custom "You have unsaved changes" message. Do not add a visible custom message string expecting it to appear — it will not.
+- **`toastTimer` cleanup is scoped to mount/unmount only** — The `useEffect` cleanup returns a `clearTimeout` for the timer, but `showToast` does not guard against post-unmount state updates. If a save request completes after the component unmounts (unlikely given `beforeunload` blocking navigation, but possible via programmatic routing), React will emit a "can't update state on unmounted component" warning. Low risk in practice.
 
 ### Known Bugs / Risks Found in TASK-006 FE Auth Review
 
