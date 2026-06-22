@@ -95,6 +95,21 @@ encryption.secret-key=
 resend.api-key=
 ```
 
+## Frontend Routes
+
+```
+/login                  — Admin login
+/signup                 — Admin signup
+/dashboard              — Unified calendar view (protected)
+/settings/calendars     — Calendar account management (protected)
+/settings/hours         — Working hours configuration (protected)
+/s/:slug                — Public availability page
+/book/:slug             — Visitor booking form
+/booking/confirm        — Booking confirmation
+/cancel/:token          — Token-based cancellation
+/reschedule/:token      — Token-based rescheduling
+```
+
 ## API Overview
 
 ### Admin APIs
