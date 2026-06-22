@@ -1,6 +1,5 @@
 import type * as React from 'react'
 import { useState, useEffect, useCallback } from 'react'
-import { NavLink } from 'react-router-dom'
 import type { CalendarAccount } from '../types'
 import {
   getAccounts,
@@ -11,6 +10,7 @@ import {
 } from '../api/calendar'
 import Modal from '../components/Modal'
 import Button from '../components/Button'
+import SettingsSidebar from '../components/SettingsSidebar'
 import Spinner from '../components/Spinner'
 
 /** Formats an ISO timestamp as a relative time string (e.g. "3 minutes ago"). */
@@ -163,18 +163,7 @@ export default function CalendarConnectPage() {
 
   return (
     <div style={styles.layout}>
-      <nav style={styles.sidebar}>
-        <p style={styles.sidebarLabel}>Settings</p>
-        <NavLink to="/settings/calendars" style={navStyle}>
-          Calendars
-        </NavLink>
-        <NavLink to="/settings/hours" style={navStyle}>
-          Working Hours
-        </NavLink>
-        <NavLink to="/dashboard" style={navStyle}>
-          Dashboard
-        </NavLink>
-      </nav>
+      <SettingsSidebar />
 
       <main style={styles.main}>
         <h2 style={{ marginBottom: 24 }}>Connected Calendars</h2>
@@ -237,40 +226,11 @@ export default function CalendarConnectPage() {
   )
 }
 
-function navStyle({ isActive }: { isActive: boolean }): React.CSSProperties {
-  return {
-    display: 'block',
-    padding: '8px 12px',
-    borderRadius: 6,
-    textDecoration: 'none',
-    color: isActive ? 'var(--accent)' : 'var(--text)',
-    background: isActive ? 'var(--accent-bg)' : 'transparent',
-    fontWeight: isActive ? 500 : 400,
-  }
-}
-
 const styles: Record<string, React.CSSProperties> = {
   layout: {
     display: 'flex',
     minHeight: '100svh',
     textAlign: 'left',
-  },
-  sidebar: {
-    width: 200,
-    borderRight: '1px solid var(--border)',
-    padding: '32px 16px',
-    flexShrink: 0,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 4,
-  },
-  sidebarLabel: {
-    fontSize: 12,
-    fontWeight: 600,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-    color: 'var(--text)',
-    margin: '0 0 8px',
   },
   main: {
     flex: 1,

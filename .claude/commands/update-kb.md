@@ -29,6 +29,7 @@ Update only when the session introduced changes visible to an external developer
 Sections to check and update as needed:
 - **Features** — add or move items between Phase 1 / Phase 2 when a feature ships or is descoped.
 - **API Overview** (Admin APIs / Public APIs) — add any new routes; remove routes that were deleted. Keep the one-line format (`METHOD /path`); do not add descriptions.
+- **Frontend Routes** — add any new frontend pages or routes; remove routes that were deleted. Keep the one-line format (`/path — Page Name`); do not add descriptions.
 - **Environment Variables** — add any new required keys introduced in `application-local.properties`. Remove keys that were dropped.
 - **Architecture** / **Tech Stack** — update only if a technology or architectural decision changed (e.g., a new external dependency was added).
 

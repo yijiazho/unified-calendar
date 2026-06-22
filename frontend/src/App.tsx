@@ -1,5 +1,4 @@
-import type { ReactNode } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Spinner from './components/Spinner'
 import LoginPage from './pages/LoginPage'
@@ -13,12 +12,21 @@ import BookingConfirmPage from './pages/BookingConfirmPage'
 import CancelPage from './pages/CancelPage'
 import ReschedulePage from './pages/ReschedulePage'
 
-/** Wraps a route and redirects to /login when no session is active. */
-function ProtectedRoute({ children }: { children: ReactNode }) {
+/** Layout component that provides auth state; must be inside the router for useNavigate to work. */
+function AuthLayout() {
+  return (
+    <AuthProvider>
+      <Outlet />
+    </AuthProvider>
+  )
+}
+
+/** Redirects unauthenticated visitors to /login; renders child routes otherwise. */
+function ProtectedRoute() {
   const { admin, loading } = useAuth()
   if (loading) return <Spinner />
   if (!admin) return <Navigate to="/login" replace />
-  return <>{children}</>
+  return <Outlet />
 }
 
 /** Redirects root to /dashboard if authenticated, otherwise to /login. */
@@ -28,51 +36,30 @@ function RootRedirect() {
   return <Navigate to={admin ? '/dashboard' : '/login'} replace />
 }
 
-function AppRoutes() {
-  return (
-    <Routes>
-      <Route path="/" element={<RootRedirect />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignupPage />} />
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <DashboardPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/settings/calendars"
-        element={
-          <ProtectedRoute>
-            <CalendarConnectPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/settings/hours"
-        element={
-          <ProtectedRoute>
-            <WorkingHoursPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route path="/s/:slug" element={<PublicSchedulePage />} />
-      <Route path="/book/:slug" element={<BookingFormPage />} />
-      <Route path="/booking/confirm" element={<BookingConfirmPage />} />
-      <Route path="/cancel/:token" element={<CancelPage />} />
-      <Route path="/reschedule/:token" element={<ReschedulePage />} />
-    </Routes>
-  )
-}
+const router = createBrowserRouter([
+  {
+    element: <AuthLayout />,
+    children: [
+      { path: '/', element: <RootRedirect /> },
+      { path: '/login', element: <LoginPage /> },
+      { path: '/signup', element: <SignupPage /> },
+      {
+        element: <ProtectedRoute />,
+        children: [
+          { path: '/dashboard', element: <DashboardPage /> },
+          { path: '/settings/calendars', element: <CalendarConnectPage /> },
+          { path: '/settings/hours', element: <WorkingHoursPage /> },
+        ],
+      },
+      { path: '/s/:slug', element: <PublicSchedulePage /> },
+      { path: '/book/:slug', element: <BookingFormPage /> },
+      { path: '/booking/confirm', element: <BookingConfirmPage /> },
+      { path: '/cancel/:token', element: <CancelPage /> },
+      { path: '/reschedule/:token', element: <ReschedulePage /> },
+    ],
+  },
+])
 
 export default function App() {
-  return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </BrowserRouter>
-  )
+  return <RouterProvider router={router} />
 }
