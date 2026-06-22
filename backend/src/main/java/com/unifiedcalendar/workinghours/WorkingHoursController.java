@@ -1,10 +1,32 @@
 package com.unifiedcalendar.workinghours;
 
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import com.unifiedcalendar.auth.SessionUtils;
+import jakarta.servlet.http.HttpSession;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/working-hours")
 public class WorkingHoursController {
-    // Implemented in TASK-010
+
+    private final WorkingHoursService service;
+
+    public WorkingHoursController(WorkingHoursService service) {
+        this.service = service;
+    }
+
+    /** Returns the admin's configured availability windows; missing days are absent (unavailable). */
+    @GetMapping
+    public List<WorkingHoursDto> get(HttpSession session) {
+        Long adminId = SessionUtils.requireAdminId(session);
+        return service.getWorkingHours(adminId);
+    }
+
+    /** Fully replaces the admin's working hours; days omitted from the body become unavailable. */
+    @PutMapping
+    public List<WorkingHoursDto> put(@RequestBody List<WorkingHoursDto> body, HttpSession session) {
+        Long adminId = SessionUtils.requireAdminId(session);
+        return service.saveWorkingHours(adminId, body);
+    }
 }
