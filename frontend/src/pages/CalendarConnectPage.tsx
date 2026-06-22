@@ -1,3 +1,4 @@
+import type * as React from 'react'
 import { useState, useEffect, useCallback } from 'react'
 import { NavLink } from 'react-router-dom'
 import type { CalendarAccount } from '../types'
@@ -133,6 +134,7 @@ export default function CalendarConnectPage() {
   }, [fetchAccounts])
 
   async function handleSetPrimary(accountId: number) {
+    if (actionInProgress) return
     setActionInProgress(true)
     try {
       await setPrimary(accountId)
@@ -145,7 +147,7 @@ export default function CalendarConnectPage() {
   }
 
   async function handleConfirmDisconnect() {
-    if (!pendingDisconnect) return
+    if (!pendingDisconnect || actionInProgress) return
     setActionInProgress(true)
     try {
       await disconnectAccount(pendingDisconnect.id)
@@ -180,7 +182,7 @@ export default function CalendarConnectPage() {
         {errorMessage && (
           <div style={styles.errorBanner}>
             {errorMessage}
-            <button style={styles.dismissBtn} onClick={() => setErrorMessage(null)}>
+            <button type="button" aria-label="Dismiss error" style={styles.dismissBtn} onClick={() => setErrorMessage(null)}>
               ✕
             </button>
           </div>

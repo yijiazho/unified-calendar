@@ -5,7 +5,7 @@ export const getAccounts = () =>
   client.get<CalendarAccount[]>('/calendar/accounts')
 
 export const getEvents = (start: string, end: string) =>
-  client.get<CalendarEvent[]>('/calendars/events', { params: { start, end } })
+  client.get<CalendarEvent[]>('/calendar/events', { params: { start, end } })
 
 /** Redirects the browser to initiate Google OAuth; backend handles the full redirect chain. */
 export const connectGoogle = () => {
