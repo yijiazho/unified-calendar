@@ -122,9 +122,10 @@ export default function WorkingHoursPage() {
       showToast('Changes saved')
     } catch (e: unknown) {
       const msg =
-        (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (e as { response?: { data?: { error?: string } } })?.response?.data?.error ??
         'Failed to save. Please try again.'
       setApiError(msg)
+    }
     } finally {
       setSaving(false)
     }

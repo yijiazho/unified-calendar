@@ -6,4 +6,4 @@ export const getWorkingHours = () => client.get<WorkingHours[]>('/working-hours'
 
 /** Replaces all working-hour windows (full replacement semantics). */
 export const saveWorkingHours = (hours: WorkingHours[]) =>
-  client.put('/working-hours', hours)
+  client.put<WorkingHours[]>('/working-hours', hours)
