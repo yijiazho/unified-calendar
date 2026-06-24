@@ -58,6 +58,7 @@ unified-calendar/
 ### Prerequisites
 
 - Docker + Docker Compose
+- Java 17+ and Node.js 20+ (only needed for the backend-only and frontend-only flows below)
 - A Google Cloud project with Calendar API enabled
 - A Microsoft Azure app registration with Calendars.ReadWrite scope
 
