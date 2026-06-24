@@ -1,6 +1,8 @@
 package com.unifiedcalendar.calendar;
 
 import com.unifiedcalendar.config.EncryptionService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -14,6 +16,8 @@ import java.util.Map;
 
 @Component
 public class OutlookTokenRefresher {
+
+    private static final Logger log = LoggerFactory.getLogger(OutlookTokenRefresher.class);
 
     private final String clientId;
     private final String clientSecret;
@@ -58,6 +62,13 @@ public class OutlookTokenRefresher {
         if (tokenResponse == null) {
             throw new RuntimeException("Microsoft token endpoint returned empty response");
         }
+        // Log what Microsoft actually granted so we can diagnose scope/permission issues
+        log.info("Token refresh for account {}: token_type={}, scope={}, has_access_token={}, has_refresh_token={}",
+                account.id(),
+                tokenResponse.get("token_type"),
+                tokenResponse.get("scope"),
+                tokenResponse.containsKey("access_token"),
+                tokenResponse.containsKey("refresh_token"));
         String newAccessToken = (String) tokenResponse.get("access_token");
         // Microsoft may return a new refresh token (rolling refresh token policy). Persist it when
         // present so the next refresh uses the latest token; fall back to the existing one if absent.

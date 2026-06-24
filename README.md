@@ -57,43 +57,53 @@ unified-calendar/
 
 ### Prerequisites
 
-- Java 17+
-- Node.js 20+
+- Docker + Docker Compose
+- Java 17+ and Node.js 20+ (only needed for the backend-only and frontend-only flows below)
 - A Google Cloud project with Calendar API enabled
 - A Microsoft Azure app registration with Calendars.ReadWrite scope
 
-### Backend
+### Full Stack (Docker Compose)
+
+Copy `.env.example` to `.env` and fill in your credentials, then:
 
 ```bash
-cd backend
-./mvnw spring-boot:run
+docker compose up --build   # first run
+docker compose up           # subsequent runs
 ```
 
-Runs on `http://localhost:8080` by default.
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Runs on `http://localhost:5173` by default.
+Frontend: `http://localhost` · Backend: `http://localhost:8080`
 
 ### Environment Variables
 
-Create `backend/src/main/resources/application-local.properties`:
+Create `.env` at the project root (see `.env.example`):
 
-```properties
-google.client-id=
-google.client-secret=
-microsoft.client-id=
-microsoft.client-secret=
-microsoft.tenant-id=
-encryption.secret-key=
-resend.api-key=
 ```
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+MICROSOFT_CLIENT_ID=
+MICROSOFT_CLIENT_SECRET=
+MICROSOFT_TENANT_ID=common
+ENCRYPTION_SECRET_KEY=
+RESEND_API_KEY=
+```
+
+### Backend Only (unit/integration tests, no browser)
+
+```bash
+cd backend
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+```
+
+This creates `backend/data/unified-calendar.db` — a separate file from the Docker volume. Do not mix with a running Docker stack.
+
+### Frontend Only (UI work against a running Docker backend)
+
+```bash
+cd frontend
+npm install && npm run dev
+```
+
+Runs on `http://localhost:5173`; expects the backend at `http://localhost:8080`.
 
 ## Frontend Routes
 

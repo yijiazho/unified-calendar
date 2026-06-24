@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.Optional;
 
 public interface CalendarAccountRepository {
+    /** Returns every calendar account across all admins — used by the background sync scheduler. */
+    List<CalendarAccount> findAll();
+
     /** Lists all calendar accounts owned by the given admin (admin-scoped). */
     List<CalendarAccount> findAllByAdminId(Long adminId);
 
@@ -18,4 +21,7 @@ public interface CalendarAccountRepository {
 
     /** Marks the given account as the admin's primary calendar (and unmarks any previous primary). */
     void setPrimary(Long id, Long adminId);
+
+    /** Updates only last_sync_at — used by the sync engine to avoid overwriting token fields. */
+    void updateLastSyncAt(Long id, java.time.Instant lastSyncAt);
 }

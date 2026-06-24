@@ -36,6 +36,11 @@ public class JdbcCalendarAccountRepository implements CalendarAccountRepository 
     }
 
     @Override
+    public List<CalendarAccount> findAll() {
+        return jdbc.query("SELECT * FROM calendar_accounts ORDER BY id", ROW_MAPPER);
+    }
+
+    @Override
     public List<CalendarAccount> findAllByAdminId(Long adminId) {
         return jdbc.query(
                 "SELECT * FROM calendar_accounts WHERE admin_id = ? ORDER BY connected_at",
@@ -61,6 +66,15 @@ public class JdbcCalendarAccountRepository implements CalendarAccountRepository 
     @Override
     public void delete(Long id, Long adminId) {
         jdbc.update("DELETE FROM calendar_accounts WHERE id = ? AND admin_id = ?", id, adminId);
+    }
+
+    /** Updates only last_sync_at; leaves token fields untouched to preserve any rotation done by the token refresher. */
+    @Override
+    public void updateLastSyncAt(Long id, Instant lastSyncAt) {
+        jdbc.update(
+                "UPDATE calendar_accounts SET last_sync_at = ? WHERE id = ?",
+                lastSyncAt != null ? lastSyncAt.toString() : null,
+                id);
     }
 
     @Override
