@@ -120,20 +120,46 @@ After completing any code changes (backend or frontend), invoke `/update-kb` to 
 
 ---
 
-## Running Locally
+## Running the Stack
+
+### Full stack — always use Docker Compose
+
+Any workflow that involves the frontend, backend, **and** the database together must go through Docker Compose. Running the backend and frontend separately creates a second SQLite file at `backend/data/unified-calendar.db` that is **not** the same file Docker uses (`data/unified-calendar.db` at the project root). This will cause calendar accounts, events, and other state to be invisible between the two modes.
 
 ```bash
-# Backend
-cd backend && ./mvnw spring-boot:run
+# First run — build images and start all services
+docker compose up --build
 
-# Frontend
-cd frontend && npm install && npm run dev
+# Subsequent runs
+docker compose up
+
+# Rebuild after backend/frontend code changes
+docker compose up --build backend   # or: frontend
+```
+
+Frontend: `http://localhost` (nginx, port 80)
+Backend: `http://localhost:8080` (also accessible via nginx proxy)
+
+### Backend only — local Maven run (unit/integration tests, no frontend needed)
+
+Use only when working on backend logic without a browser. This creates `backend/data/unified-calendar.db` — a **separate** database from the Docker volume. Do not mix this with a running Docker stack.
+
+```bash
+cd backend && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
 Backend: `http://localhost:8080`
-Frontend: `http://localhost:5173`
+
+### Frontend only — Vite dev server (UI work against a running Docker backend)
+
+```bash
+cd frontend && npm install && npm run dev
+```
+
+Frontend: `http://localhost:5173` — expects the backend at `http://localhost:8080` (start Docker Compose first).
 
 ## Environment / Secrets
 
-All secrets go in `backend/src/main/resources/application-local.properties` (gitignored).
-Required keys: `google.client-id`, `google.client-secret`, `microsoft.client-id`, `microsoft.client-secret`, `microsoft.tenant-id`, `encryption.secret-key`, `resend.api-key`.
+Secrets for Docker are in `.env` at the project root (gitignored — see `.env.example`).
+Secrets for local Maven runs go in `backend/src/main/resources/application-local.properties` (gitignored).
+Required keys in both: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_TENANT_ID`, `ENCRYPTION_SECRET_KEY`, `RESEND_API_KEY`.

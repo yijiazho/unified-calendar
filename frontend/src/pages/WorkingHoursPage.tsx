@@ -125,7 +125,6 @@ export default function WorkingHoursPage() {
         (e as { response?: { data?: { error?: string } } })?.response?.data?.error ??
         'Failed to save. Please try again.'
       setApiError(msg)
-    }
     } finally {
       setSaving(false)
     }

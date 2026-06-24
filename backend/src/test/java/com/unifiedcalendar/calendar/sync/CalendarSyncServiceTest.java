@@ -60,14 +60,13 @@ class CalendarSyncServiceTest {
         when(googleTokenRefresher.refreshAccessToken(acc)).thenReturn("fresh-token");
         when(googleSyncAdapter.fetchEvents(eq(acc), eq("fresh-token"), any(), any()))
                 .thenReturn(List.of(evt));
-        when(calendarAccountRepository.save(any())).thenReturn(acc);
 
         service.syncAll();
 
         verify(calendarEventRepository).upsert(evt);
         verify(calendarEventRepository)
                 .deleteByCalendarAccountIdAndProviderEventIdNotIn(1L, List.of("evt-001"));
-        verify(calendarAccountRepository).save(argThat(a -> a.lastSyncAt() != null));
+        verify(calendarAccountRepository).updateLastSyncAt(eq(1L), argThat(t -> t != null));
     }
 
     @Test
@@ -92,14 +91,14 @@ class CalendarSyncServiceTest {
         when(outlookTokenRefresher.refreshAccessToken(goodAcc)).thenReturn("ms-token");
         when(outlookSyncAdapter.fetchEvents(eq(goodAcc), eq("ms-token"), any(), any()))
                 .thenReturn(List.of());
-        when(calendarAccountRepository.save(any())).thenReturn(goodAcc);
 
         service.syncAll();
 
-        // Failed account saved with null lastSyncAt
-        verify(calendarAccountRepository).save(argThat(a -> a.id().equals(1L) && a.lastSyncAt() == null));
-        // Good account still synced
+        // Failed account gets null lastSyncAt via updateLastSyncAt
+        verify(calendarAccountRepository).updateLastSyncAt(eq(1L), isNull());
+        // Good account still synced and gets a non-null timestamp
         verify(outlookSyncAdapter).fetchEvents(eq(goodAcc), eq("ms-token"), any(), any());
+        verify(calendarAccountRepository).updateLastSyncAt(eq(2L), argThat(t -> t != null));
     }
 
     @Test
@@ -116,7 +115,6 @@ class CalendarSyncServiceTest {
                 .thenThrow(new RuntimeException("503 Service Unavailable"));
         when(googleSyncAdapter.fetchEvents(eq(acc2), eq("tok2"), any(), any()))
                 .thenReturn(List.of(evt2));
-        when(calendarAccountRepository.save(any())).thenReturn(acc2);
 
         service.syncAll();
 
@@ -136,7 +134,6 @@ class CalendarSyncServiceTest {
         when(googleTokenRefresher.refreshAccessToken(acc)).thenReturn("token");
         when(googleSyncAdapter.fetchEvents(eq(acc), eq("token"), any(), any()))
                 .thenReturn(List.of());
-        when(calendarAccountRepository.save(any())).thenReturn(acc);
 
         service.syncAll();
 

@@ -27,7 +27,7 @@ public class GoogleSyncAdapter {
         this.httpTransport = googleHttpTransport;
     }
 
-    /** Fetches all non-recurring, timed events from the primary Google Calendar for the given window. */
+    /** Fetches all timed events (including recurring instances) from the primary Google Calendar for the given window. */
     public List<CalendarEvent> fetchEvents(CalendarAccount account, String accessToken, Instant from, Instant to) {
         Calendar calendarService = new Calendar.Builder(
                 httpTransport,
@@ -37,6 +37,7 @@ public class GoogleSyncAdapter {
                 .build();
 
         List<CalendarEvent> result = new ArrayList<>();
+        int rawCount = 0;
         String pageToken = null;
         try {
             do {
@@ -50,6 +51,7 @@ public class GoogleSyncAdapter {
                 List<Event> items = events.getItems();
                 if (items != null) {
                     for (Event event : items) {
+                        rawCount++;
                         CalendarEvent normalized = normalize(event, account);
                         if (normalized != null) {
                             result.add(normalized);
@@ -61,15 +63,13 @@ public class GoogleSyncAdapter {
         } catch (Exception e) {
             throw new RuntimeException("Google Calendar API error for account " + account.id(), e);
         }
+        log.info("Google Calendar fetched {} raw event(s), kept {} for account {} (all-day events skipped)",
+                rawCount, result.size(), account.id());
         return result;
     }
 
-    /** Returns null for all-day events and for instances of recurring series. */
+    /** Returns null for all-day events; recurring instances are included since setSingleEvents(true) gives them stable IDs. */
     private CalendarEvent normalize(Event event, CalendarAccount account) {
-        // setSingleEvents(true) expands recurring series — skip the expanded instances
-        if (event.getRecurringEventId() != null) {
-            return null;
-        }
         // All-day events carry a date field instead of dateTime; skip them per MVP scope
         if (event.getStart() == null || event.getStart().getDateTime() == null) {
             log.debug("Skipping all-day Google event {} for account {}", event.getId(), account.id());

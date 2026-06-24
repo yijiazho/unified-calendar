@@ -79,13 +79,11 @@ public class CalendarSyncService {
         }
         calendarEventRepository.deleteByCalendarAccountIdAndProviderEventIdNotIn(account.id(), seenIds);
 
-        CalendarAccount updated = new CalendarAccount(
-                account.id(), account.adminId(), account.provider(), account.providerAccountId(),
-                account.email(), account.encryptedAccessToken(), account.encryptedRefreshToken(),
-                account.isPrimary(), account.connectedAt(), Instant.now());
-        calendarAccountRepository.save(updated);
+        // Only update last_sync_at — token fields were already persisted by the token refresher and
+        // must not be overwritten here (Microsoft may have issued a rotated refresh token).
+        calendarAccountRepository.updateLastSyncAt(account.id(), Instant.now());
 
-        log.debug("Synced {} event(s) for account {}", events.size(), account.id());
+        log.info("Synced {} event(s) for account {} ({})", events.size(), account.id(), account.provider());
     }
 
     private String refreshToken(CalendarAccount account) {
@@ -107,10 +105,7 @@ public class CalendarSyncService {
     /** Sets last_sync_at to null to signal that this account has not successfully synced. */
     private void markSyncFailed(CalendarAccount account) {
         try {
-            calendarAccountRepository.save(new CalendarAccount(
-                    account.id(), account.adminId(), account.provider(), account.providerAccountId(),
-                    account.email(), account.encryptedAccessToken(), account.encryptedRefreshToken(),
-                    account.isPrimary(), account.connectedAt(), null));
+            calendarAccountRepository.updateLastSyncAt(account.id(), null);
         } catch (Exception ex) {
             log.warn("Could not mark account {} as sync-failed: {}", account.id(), ex.getMessage());
         }

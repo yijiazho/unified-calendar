@@ -7,6 +7,7 @@ import com.unifiedcalendar.auth.SlugAlreadyUsedException;
 import com.unifiedcalendar.auth.UnauthorizedException;
 import com.unifiedcalendar.auth.ValidationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -20,6 +21,13 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, String> handleValidation(ValidationException ex) {
         return Map.of("error", ex.getMessage());
+    }
+
+    /** Spring 6.2+ throws this before the controller runs when @RequestBody resolves to null or is malformed. */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Map<String, String> handleNotReadable(HttpMessageNotReadableException ex) {
+        return Map.of("error", "Request body must not be null");
     }
 
     @ExceptionHandler(EmailAlreadyUsedException.class)

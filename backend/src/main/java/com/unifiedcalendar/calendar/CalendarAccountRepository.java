@@ -21,4 +21,7 @@ public interface CalendarAccountRepository {
 
     /** Marks the given account as the admin's primary calendar (and unmarks any previous primary). */
     void setPrimary(Long id, Long adminId);
+
+    /** Updates only last_sync_at — used by the sync engine to avoid overwriting token fields. */
+    void updateLastSyncAt(Long id, java.time.Instant lastSyncAt);
 }
