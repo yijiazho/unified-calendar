@@ -114,7 +114,7 @@ public class OutlookSyncAdapter {
             while (m.find()) {
                 claims.append(m.group(1)).append("=[").append(m.group(2)).append("] ");
             }
-            log.info("Token claims for account {}: {}", accountId,
+            log.debug("Token claims for account {}: {}", accountId,
                     claims.length() > 0 ? claims : "(none matched — check raw payload format)");
         } catch (Exception e) {
             log.error("Could not decode token for account {}: {}", accountId, e.getMessage());

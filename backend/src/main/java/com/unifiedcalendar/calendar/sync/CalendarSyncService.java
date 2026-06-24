@@ -11,6 +11,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Service
+@org.springframework.context.annotation.Profile("!test")
 public class CalendarSyncService {
 
     private static final Logger log = LoggerFactory.getLogger(CalendarSyncService.class);
@@ -53,9 +54,9 @@ public class CalendarSyncService {
     }
 
     private void syncAccount(CalendarAccount account) {
-        Instant from = Instant.now().minus(1, ChronoUnit.DAYS);
-        Instant to   = Instant.now().plus(60, ChronoUnit.DAYS);
-
+        Instant now = Instant.now();
+        Instant from = now.minus(1, ChronoUnit.DAYS);
+        Instant to   = now.plus(60, ChronoUnit.DAYS);
         String accessToken;
         try {
             accessToken = refreshToken(account);
