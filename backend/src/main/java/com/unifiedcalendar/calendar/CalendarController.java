@@ -1,17 +1,25 @@
 package com.unifiedcalendar.calendar;
 
 import com.unifiedcalendar.auth.SessionUtils;
+import com.unifiedcalendar.calendar.sync.CalendarSyncService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequestMapping("/calendar")
@@ -22,16 +30,24 @@ public class CalendarController {
     private final GoogleOAuthService googleOAuthService;
     private final OutlookOAuthService outlookOAuthService;
     private final CalendarAccountRepository repository;
+    private final CalendarEventRepository eventRepository;
     private final String frontendBaseUrl;
+
+    // Optional: not available under the test profile (@Profile("!test") on CalendarSyncService).
+    @Nullable
+    @Autowired(required = false)
+    private CalendarSyncService syncService;
 
     public CalendarController(
             GoogleOAuthService googleOAuthService,
             OutlookOAuthService outlookOAuthService,
             CalendarAccountRepository repository,
+            CalendarEventRepository eventRepository,
             @Value("${app.base-url}") String frontendBaseUrl) {
         this.googleOAuthService = googleOAuthService;
         this.outlookOAuthService = outlookOAuthService;
         this.repository = repository;
+        this.eventRepository = eventRepository;
         this.frontendBaseUrl = frontendBaseUrl;
     }
 
@@ -125,4 +141,57 @@ public class CalendarController {
                 .map(CalendarAccountResponse::from)
                 .toList();
     }
+
+    /**
+     * Returns all synced events for the authenticated admin that overlap the given UTC date/time range.
+     * Accepts both date-only ("2024-03-01") and full datetime strings; date-only start defaults to
+     * midnight UTC, date-only end defaults to 23:59:59 UTC.
+     */
+    @GetMapping("/events")
+    public List<CalendarEventResponse> listEvents(
+            @RequestParam String start,
+            @RequestParam String end,
+            HttpSession session) {
+        Long adminId = SessionUtils.requireAdminId(session);
+        Instant from = parseStart(start);
+        Instant to   = parseEnd(end);
+        return eventRepository.findWithEmailByAdminIdAndTimeRange(adminId, from, to);
+    }
+
+    /** Triggers an immediate background sync for all connected calendar accounts; returns 202 immediately. */
+    @PostMapping("/sync")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void triggerSync(HttpSession session) {
+        SessionUtils.requireAdminId(session);
+        if (syncService == null) {
+            log.warn("POST /calendar/sync called but CalendarSyncService is unavailable (test profile?)");
+            return;
+        }
+        CompletableFuture.runAsync(syncService::syncAll);
+    }
+
+    private Instant parseStart(String value) {
+        try {
+            return Instant.parse(value);
+        } catch (DateTimeParseException ignored) {}
+        try {
+            return LocalDate.parse(value).atStartOfDay().toInstant(ZoneOffset.UTC);
+        } catch (DateTimeParseException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Invalid 'start' parameter: expected ISO-8601 date or datetime");
+        }
+    }
+
+    private Instant parseEnd(String value) {
+        try {
+            return Instant.parse(value);
+        } catch (DateTimeParseException ignored) {}
+        try {
+            return LocalDate.parse(value).atTime(23, 59, 59).toInstant(ZoneOffset.UTC);
+        } catch (DateTimeParseException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Invalid 'end' parameter: expected ISO-8601 date or datetime");
+        }
+    }
+
 }

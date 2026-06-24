@@ -173,6 +173,74 @@ class JdbcCalendarEventRepositoryTest {
     }
 
     @Test
+    @DisplayName("findWithEmailByAdminIdAndTimeRange returns events with calendar email joined")
+    void findWithEmailReturnsEmail() {
+        repository.upsert(event("evt-email",
+                Instant.parse("2024-06-01T09:00:00Z"), Instant.parse("2024-06-01T10:00:00Z")));
+
+        List<CalendarEventResponse> found = repository.findWithEmailByAdminIdAndTimeRange(
+                adminId,
+                Instant.parse("2024-06-01T08:00:00Z"),
+                Instant.parse("2024-06-01T11:00:00Z"));
+
+        assertEquals(1, found.size());
+        CalendarEventResponse resp = found.get(0);
+        assertEquals("test@gmail.com", resp.calendarEmail());
+        assertEquals("GOOGLE", resp.provider());
+        assertEquals(accountId, resp.calendarAccountId());
+    }
+
+    @Test
+    @DisplayName("findWithEmailByAdminIdAndTimeRange excludes events outside range")
+    void findWithEmailExcludesOutOfRange() {
+        // Entirely before the window — ends at 08:59:59 which is before the 09:00 start
+        repository.upsert(event("before",
+                Instant.parse("2024-06-01T07:00:00Z"), Instant.parse("2024-06-01T08:59:59Z")));
+        // Overlapping — starts before, ends inside the window
+        repository.upsert(event("overlaps",
+                Instant.parse("2024-06-01T08:00:00Z"), Instant.parse("2024-06-01T10:00:00Z")));
+
+        List<CalendarEventResponse> found = repository.findWithEmailByAdminIdAndTimeRange(
+                adminId,
+                Instant.parse("2024-06-01T09:00:00Z"),
+                Instant.parse("2024-06-01T11:00:00Z"));
+
+        assertEquals(1, found.size());
+        assertEquals("2024-06-01T08:00:00Z", found.get(0).start());
+    }
+
+    @Test
+    @DisplayName("findWithEmailByAdminIdAndTimeRange returns empty list when no events match")
+    void findWithEmailReturnsEmptyListWhenNoMatch() {
+        List<CalendarEventResponse> found = repository.findWithEmailByAdminIdAndTimeRange(
+                adminId,
+                Instant.parse("2024-06-01T00:00:00Z"),
+                Instant.parse("2024-06-01T23:59:59Z"));
+
+        assertTrue(found.isEmpty());
+    }
+
+    @Test
+    @DisplayName("findWithEmailByAdminIdAndTimeRange reflects isBookingEvent flag correctly")
+    void findWithEmailReflectsBookingEventFlag() {
+        jdbc.update(
+                "INSERT INTO calendar_events " +
+                "(admin_id, calendar_account_id, provider, provider_event_id, title, " +
+                " start_time_utc, end_time_utc, is_booking_event) " +
+                "VALUES (?, ?, 'GOOGLE', 'booking-001', 'Booked Slot', " +
+                " '2024-06-01T10:00:00Z', '2024-06-01T10:30:00Z', 1)",
+                adminId, accountId);
+
+        List<CalendarEventResponse> found = repository.findWithEmailByAdminIdAndTimeRange(
+                adminId,
+                Instant.parse("2024-06-01T09:00:00Z"),
+                Instant.parse("2024-06-01T11:00:00Z"));
+
+        assertEquals(1, found.size());
+        assertTrue(found.get(0).isBookingEvent());
+    }
+
+    @Test
     @DisplayName("upsert preserves is_booking_event flag on conflict update")
     void upsertPreservesBookingEventFlag() {
         // Insert a booking event directly (simulating a booking flow)
