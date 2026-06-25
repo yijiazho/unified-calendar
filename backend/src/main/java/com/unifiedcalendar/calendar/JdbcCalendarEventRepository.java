@@ -105,4 +105,28 @@ public class JdbcCalendarEventRepository implements CalendarEventRepository {
             ROW_MAPPER, adminId, to.toString(), from.toString()
         );
     }
+
+    @Override
+    public List<CalendarEventResponse> findWithEmailByAdminIdAndTimeRange(Long adminId, Instant start, Instant end) {
+        // JOIN with calendar_accounts to include the email that owns each event.
+        return jdbc.query(
+            "SELECT ce.id, ce.title, ce.start_time_utc, ce.end_time_utc, ce.provider, " +
+            "  ce.calendar_account_id, ca.email AS calendar_email, ce.is_booking_event " +
+            "FROM calendar_events ce " +
+            "JOIN calendar_accounts ca ON ca.id = ce.calendar_account_id " +
+            "WHERE ce.admin_id = ? AND ce.start_time_utc < ? AND ce.end_time_utc > ? " +
+            "ORDER BY ce.start_time_utc ASC",
+            (rs, rowNum) -> new CalendarEventResponse(
+                rs.getLong("id"),
+                rs.getString("title"),
+                rs.getString("start_time_utc"),
+                rs.getString("end_time_utc"),
+                rs.getString("provider"),
+                rs.getLong("calendar_account_id"),
+                rs.getString("calendar_email"),
+                rs.getInt("is_booking_event") == 1
+            ),
+            adminId, end.toString(), start.toString()
+        );
+    }
 }
