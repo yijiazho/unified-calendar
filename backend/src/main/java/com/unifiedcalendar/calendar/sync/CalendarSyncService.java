@@ -9,12 +9,15 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 @org.springframework.context.annotation.Profile("!test")
 public class CalendarSyncService {
 
     private static final Logger log = LoggerFactory.getLogger(CalendarSyncService.class);
+
+    private final AtomicBoolean running = new AtomicBoolean(false);
 
     private final CalendarAccountRepository calendarAccountRepository;
     private final CalendarEventRepository calendarEventRepository;
@@ -41,16 +44,24 @@ public class CalendarSyncService {
     /** Runs every 5 minutes; each account is isolated so one failure never blocks the others. */
     @Scheduled(fixedDelay = 300_000)
     public void syncAll() {
-        List<CalendarAccount> accounts = calendarAccountRepository.findAll();
-        log.info("Sync cycle starting for {} account(s)", accounts.size());
-        for (CalendarAccount account : accounts) {
-            try {
-                syncAccount(account);
-            } catch (Exception e) {
-                log.error("Sync failed for account {} ({}): {}", account.id(), account.provider(), e.getMessage(), e);
-            }
+        if (!running.compareAndSet(false, true)) {
+            log.info("Sync already in progress, skipping trigger");
+            return;
         }
-        log.info("Sync cycle complete");
+        try {
+            List<CalendarAccount> accounts = calendarAccountRepository.findAll();
+            log.info("Sync cycle starting for {} account(s)", accounts.size());
+            for (CalendarAccount account : accounts) {
+                try {
+                    syncAccount(account);
+                } catch (Exception e) {
+                    log.error("Sync failed for account {} ({}): {}", account.id(), account.provider(), e.getMessage(), e);
+                }
+            }
+            log.info("Sync cycle complete");
+        } finally {
+            running.set(false);
+        }
     }
 
     private void syncAccount(CalendarAccount account) {
