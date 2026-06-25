@@ -183,6 +183,26 @@ class CalendarEventsControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("GET /calendar/events with missing start param returns 400 with consistent error shape")
+    void getEventsWithMissingStartReturns400() throws Exception {
+        mvc.perform(get(EVENTS_URL)
+                .param("end", "2024-03-31")
+                .session(session))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Required parameter 'start' is missing"));
+    }
+
+    @Test
+    @DisplayName("GET /calendar/events with missing end param returns 400 with consistent error shape")
+    void getEventsWithMissingEndReturns400() throws Exception {
+        mvc.perform(get(EVENTS_URL)
+                .param("start", "2024-03-01")
+                .session(session))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Required parameter 'end' is missing"));
+    }
+
+    @Test
     @DisplayName("GET /calendar/events without session returns 401")
     void getEventsWithoutSessionReturns401() throws Exception {
         mvc.perform(get(EVENTS_URL)

@@ -8,6 +8,7 @@ import com.unifiedcalendar.auth.UnauthorizedException;
 import com.unifiedcalendar.auth.ValidationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -28,6 +29,13 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, String> handleNotReadable(HttpMessageNotReadableException ex) {
         return Map.of("error", "Request body must not be null");
+    }
+
+    /** Thrown before the controller runs when a required @RequestParam is absent. */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Map<String, String> handleMissingParam(MissingServletRequestParameterException ex) {
+        return Map.of("error", "Required parameter '" + ex.getParameterName() + "' is missing");
     }
 
     @ExceptionHandler(EmailAlreadyUsedException.class)
