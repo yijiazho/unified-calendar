@@ -23,3 +23,7 @@ export const disconnectAccount = (id: number) =>
 /** Sets the primary calendar used for booking event creation. */
 export const setPrimary = (accountId: number) =>
   client.put('/calendar/primary', { accountId })
+
+/** Triggers a full sync of all connected calendar accounts. */
+export const triggerSync = () =>
+  client.post('/calendar/sync')

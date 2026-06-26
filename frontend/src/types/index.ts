@@ -18,7 +18,10 @@ export interface CalendarEvent {
   title: string
   start: string
   end: string
-  provider: string
+  provider: 'GOOGLE' | 'OUTLOOK'
+  calendarAccountId: number
+  calendarEmail: string
+  isBookingEvent: boolean
 }
 
 export interface WorkingHours {
