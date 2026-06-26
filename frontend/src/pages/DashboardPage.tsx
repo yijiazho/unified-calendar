@@ -44,7 +44,7 @@ interface PopoverState {
 
 function renderEventContent(arg: EventContentArg) {
   return (
-    <div style={{ padding: '1px 4px', overflow: 'hidden', fontSize: '0.85em' }}>
+    <div style={{ padding: '1px 4px', overflow: 'hidden', fontSize: '0.85em', height: '100%' }}>
       <span>{arg.event.title}</span>
       {arg.event.extendedProps.isBooking && (
         <span style={styles.bookingDot} title="Booking" />
