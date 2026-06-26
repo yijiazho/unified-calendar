@@ -155,11 +155,8 @@ type: project
 
 ### Dashboard / FullCalendar Patterns (TASK-014, reviewed 2026-06-25)
 
-- **`pulse` keyframe is NOT defined in `index.css`** — `spin` is defined globally at line 69 of `index.css`, but `pulse` is not. Any component that references `animation: 'pulse ...'` in inline CSS will silently produce a non-animating element. Always check `index.css` before adding a new CSS animation name via inline styles. If a new animation is needed, add the `@keyframes` block to `index.css` first.
-- **`handleSyncNow` `setTimeout` is not cleaned up on unmount** — the 3-second timer fires `setSyncing(false)` and `refetchEvents()` regardless of whether the component is still mounted. If the user navigates away mid-sync, React may log a "can't perform a state update on an unmounted component" warning. Store the `setTimeout` return value in a `useRef` and clear it in a `useEffect` cleanup.
-
-### Dashboard / FullCalendar Patterns (TASK-014, 2026-06-25)
-
+- **CSS animations referenced in inline styles must exist in `index.css`** — `spin` and `pulse` are defined there; add a `@keyframes` block before referencing any new animation name.
+- **Sync timers must not update state after unmount** — store the timer handle in a `useRef`, clear it in a `useEffect` cleanup, and avoid scheduling the timer if the component has already unmounted (e.g., guard before `setTimeout` after awaiting a request).
 - **`fetchEvents` must be an `EventSourceFunc` callback, not a static array** — FullCalendar calls the callback on every view or date-range change, passing `fetchInfo.startStr`/`endStr` as ISO-8601 bounds. Passing a static array loads events once on mount and never refetches on navigation. Any future event-fetching function passed to the `events` prop must follow the callback form.
 - **`useCallback` on `fetchEvents` is mandatory** — without it, the function reference changes on every render, FullCalendar treats it as a new event source, and the calendar enters an infinite refetch loop. Wrap all FullCalendar `events` callbacks in `useCallback`.
 - **`height="100vh"` is required; `height="100%"` collapses the time grid** — FullCalendar needs a definite pixel height to render the time-grid (week/day) slots. With `height="100%"`, the wrapper div has no explicit height and the time grid collapses to just the all-day row. Do not regress to `height="100%"`.

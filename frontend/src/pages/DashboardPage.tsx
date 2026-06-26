@@ -117,6 +117,10 @@ export default function DashboardPage() {
     } catch {
       // sync is best-effort; calendar will refetch regardless
     }
+
+    // If the component unmounted while awaiting the request, don't schedule a timer/state update.
+    if (!calendarRef.current) return
+
     syncTimerRef.current = setTimeout(() => {
       setSyncing(false)
       calendarRef.current?.getApi().refetchEvents()
