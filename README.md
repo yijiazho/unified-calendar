@@ -137,6 +137,7 @@ PUT    /calendar/primary
 GET    /working-hours
 PUT    /working-hours
 GET    /calendar/events
+POST   /calendar/sync
 ```
 
 ### Public APIs
