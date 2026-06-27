@@ -1,6 +1,5 @@
 package com.unifiedcalendar.calendar;
 
-import com.unifiedcalendar.calendar.sync.CalendarSyncService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,18 +25,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @DisplayName("GET /calendar/events and POST /calendar/sync integration")
 class CalendarEventsControllerIntegrationTest {
 
-    // CalendarSyncService is @Profile("!test") — provide a mock so the context loads.
-    @MockBean
-    @SuppressWarnings("unused")
-    private CalendarSyncService calendarSyncService;
-
+    // GoogleOAuthService initialises a GoogleIdTokenVerifier — mock it to avoid HTTP calls on context load.
     @MockBean
     @SuppressWarnings("unused")
     private GoogleOAuthService googleOAuthService;
-
-    @MockBean
-    @SuppressWarnings("unused")
-    private GoogleTokenRefresher googleTokenRefresher;
 
     @Autowired
     private MockMvc mvc;
@@ -118,7 +109,6 @@ class CalendarEventsControllerIntegrationTest {
     @Test
     @DisplayName("GET /calendar/events includes an event that spans the start of the range")
     void getEventsIncludesSpanningEvent() throws Exception {
-        // Starts before range start, ends after range start — must be included (overlap query)
         insertEvent("spans-start", "2024-02-28T22:00:00Z", "2024-03-01T01:00:00Z");
 
         mvc.perform(get(EVENTS_URL)

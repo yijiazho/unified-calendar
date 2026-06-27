@@ -7,15 +7,11 @@ export const getAccounts = () =>
 export const getEvents = (start: string, end: string) =>
   client.get<CalendarEvent[]>('/calendar/events', { params: { start, end } })
 
-/** Redirects the browser to initiate Google OAuth; backend handles the full redirect chain. */
-export const connectGoogle = () => {
-  window.location.href = '/api/calendar/google/connect'
-}
+/** Returns the URL to initiate Google OAuth; caller is responsible for navigation. */
+export const connectGoogle = (): string => '/api/calendar/google/connect'
 
-/** Redirects the browser to initiate Outlook OAuth; backend handles the full redirect chain. */
-export const connectOutlook = () => {
-  window.location.href = '/api/calendar/outlook/connect'
-}
+/** Returns the URL to initiate Outlook OAuth; caller is responsible for navigation. */
+export const connectOutlook = (): string => '/api/calendar/outlook/connect'
 
 export const disconnectAccount = (id: number) =>
   client.delete(`/calendar/accounts/${id}`)

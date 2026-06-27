@@ -44,6 +44,14 @@ function validate(form: FormState): string | null {
   return null
 }
 
+function isFormDirty(a: FormState, b: FormState): boolean {
+  return a.length !== b.length || a.some((row, i) =>
+    row.enabled !== b[i].enabled ||
+    row.startTime !== b[i].startTime ||
+    row.endTime !== b[i].endTime
+  )
+}
+
 /** Settings page for configuring per-weekday availability windows. */
 export default function WorkingHoursPage() {
   const [form, setForm] = useState<FormState>(() => buildFormState([]))
@@ -57,7 +65,7 @@ export default function WorkingHoursPage() {
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const isDirty = JSON.stringify(form) !== JSON.stringify(savedForm)
+  const isDirty = isFormDirty(form, savedForm)
 
   // Blocks React Router SPA navigation when there are unsaved changes.
   const blocker = useBlocker(isDirty)

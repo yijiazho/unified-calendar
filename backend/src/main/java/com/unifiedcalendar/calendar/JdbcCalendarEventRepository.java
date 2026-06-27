@@ -24,7 +24,7 @@ public class JdbcCalendarEventRepository implements CalendarEventRepository {
             rs.getLong("id"),
             rs.getLong("admin_id"),
             rs.getLong("calendar_account_id"),
-            rs.getString("provider"),
+            Provider.valueOf(rs.getString("provider")),
             rs.getString("provider_event_id"),
             rs.getString("title"),
             Instant.parse(rs.getString("start_time_utc")),
@@ -58,7 +58,7 @@ public class JdbcCalendarEventRepository implements CalendarEventRepository {
             "  end_time_utc = excluded.end_time_utc, " +
             "  provider_updated_at = excluded.provider_updated_at, " +
             "  last_synced_at = excluded.last_synced_at",
-            event.adminId(), event.calendarAccountId(), event.provider(), event.providerEventId(),
+            event.adminId(), event.calendarAccountId(), event.provider().name(), event.providerEventId(),
             event.title(),
             event.startTimeUtc().toString(), event.endTimeUtc().toString(),
             event.isBookingEvent() ? 1 : 0,

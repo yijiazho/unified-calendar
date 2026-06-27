@@ -1,6 +1,7 @@
 package com.unifiedcalendar.calendar;
 
 import com.unifiedcalendar.config.EncryptionService;
+import com.unifiedcalendar.calendar.Provider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -124,10 +125,10 @@ public class OutlookOAuthService {
         }
 
         CalendarAccount account = new CalendarAccount(
-                null, adminId, "OUTLOOK", oid, email,
+                null, adminId, Provider.OUTLOOK, oid, email,
                 encryptionService.encrypt(accessToken),
                 encryptionService.encrypt(refreshToken),
-                false, Instant.now(), null);
+                false, Instant.now(), null, null);
         return repository.save(account);
     }
 

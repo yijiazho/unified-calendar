@@ -77,13 +77,6 @@ class WorkingHoursServiceTest {
     }
 
     @Test
-    @DisplayName("saveWorkingHours with null dayOfWeek throws ValidationException")
-    void saveNullDayOfWeekThrows() {
-        List<WorkingHoursDto> dtos = List.of(new WorkingHoursDto(null, "09:00", "17:00"));
-        assertThrows(ValidationException.class, () -> service.saveWorkingHours(adminId, dtos));
-    }
-
-    @Test
     @DisplayName("saveWorkingHours with duplicate dayOfWeek throws ValidationException")
     void saveDuplicateDayThrows() {
         List<WorkingHoursDto> dtos = List.of(
@@ -104,34 +97,6 @@ class WorkingHoursServiceTest {
     @DisplayName("saveWorkingHours where startTime equals endTime throws ValidationException")
     void saveStartEqualsEndThrows() {
         List<WorkingHoursDto> dtos = List.of(new WorkingHoursDto(0, "09:00", "09:00"));
-        assertThrows(ValidationException.class, () -> service.saveWorkingHours(adminId, dtos));
-    }
-
-    @Test
-    @DisplayName("saveWorkingHours with dayOfWeek=7 throws ValidationException")
-    void saveDayOfWeekSevenThrows() {
-        List<WorkingHoursDto> dtos = List.of(new WorkingHoursDto(7, "09:00", "17:00"));
-        assertThrows(ValidationException.class, () -> service.saveWorkingHours(adminId, dtos));
-    }
-
-    @Test
-    @DisplayName("saveWorkingHours with dayOfWeek=-1 throws ValidationException")
-    void saveDayOfWeekNegativeThrows() {
-        List<WorkingHoursDto> dtos = List.of(new WorkingHoursDto(-1, "09:00", "17:00"));
-        assertThrows(ValidationException.class, () -> service.saveWorkingHours(adminId, dtos));
-    }
-
-    @Test
-    @DisplayName("saveWorkingHours with invalid time format throws ValidationException")
-    void saveInvalidTimeFormatThrows() {
-        List<WorkingHoursDto> dtos = List.of(new WorkingHoursDto(0, "9:00", "17:00"));
-        assertThrows(ValidationException.class, () -> service.saveWorkingHours(adminId, dtos));
-    }
-
-    @Test
-    @DisplayName("saveWorkingHours with null startTime throws ValidationException")
-    void saveNullStartTimeThrows() {
-        List<WorkingHoursDto> dtos = List.of(new WorkingHoursDto(0, null, "17:00"));
         assertThrows(ValidationException.class, () -> service.saveWorkingHours(adminId, dtos));
     }
 

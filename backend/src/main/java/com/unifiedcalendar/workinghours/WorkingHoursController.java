@@ -2,6 +2,7 @@ package com.unifiedcalendar.workinghours;
 
 import com.unifiedcalendar.auth.SessionUtils;
 import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,7 +26,7 @@ public class WorkingHoursController {
 
     /** Fully replaces the admin's working hours; days omitted from the body become unavailable. */
     @PutMapping
-    public List<WorkingHoursDto> put(@RequestBody List<WorkingHoursDto> body, HttpSession session) {
+    public List<WorkingHoursDto> put(@Valid @RequestBody List<WorkingHoursDto> body, HttpSession session) {
         Long adminId = SessionUtils.requireAdminId(session);
         return service.saveWorkingHours(adminId, body);
     }

@@ -21,14 +21,15 @@ public class JdbcCalendarAccountRepository implements CalendarAccountRepository 
     private static final RowMapper<CalendarAccount> ROW_MAPPER = (rs, rowNum) -> new CalendarAccount(
             rs.getLong("id"),
             rs.getLong("admin_id"),
-            rs.getString("provider"),
+            Provider.valueOf(rs.getString("provider")),
             rs.getString("provider_account_id"),
             rs.getString("email"),
             rs.getString("encrypted_access_token"),
             rs.getString("encrypted_refresh_token"),
             rs.getInt("is_primary") == 1,
             parseInstant(rs.getString("connected_at")),
-            parseInstant(rs.getString("last_sync_at"))
+            parseInstant(rs.getString("last_sync_at")),
+            rs.getString("last_sync_error")
     );
 
     private static Instant parseInstant(String value) {
@@ -68,13 +69,21 @@ public class JdbcCalendarAccountRepository implements CalendarAccountRepository 
         jdbc.update("DELETE FROM calendar_accounts WHERE id = ? AND admin_id = ?", id, adminId);
     }
 
-    /** Updates only last_sync_at; leaves token fields untouched to preserve any rotation done by the token refresher. */
+    /** Updates only last_sync_at and clears last_sync_error — used to record a successful sync. */
     @Override
     public void updateLastSyncAt(Long id, Instant lastSyncAt) {
         jdbc.update(
-                "UPDATE calendar_accounts SET last_sync_at = ? WHERE id = ?",
+                "UPDATE calendar_accounts SET last_sync_at = ?, last_sync_error = NULL WHERE id = ?",
                 lastSyncAt != null ? lastSyncAt.toString() : null,
                 id);
+    }
+
+    /** Sets last_sync_error without touching last_sync_at — preserves the last successful sync time. */
+    @Override
+    public void markSyncFailed(Long id, String error) {
+        jdbc.update(
+                "UPDATE calendar_accounts SET last_sync_error = ? WHERE id = ?",
+                error, id);
     }
 
     @Override
@@ -98,27 +107,28 @@ public class JdbcCalendarAccountRepository implements CalendarAccountRepository 
                 "  email = excluded.email, " +
                 "  encrypted_access_token = excluded.encrypted_access_token, " +
                 "  encrypted_refresh_token = excluded.encrypted_refresh_token",
-                account.adminId(), account.provider(), account.providerAccountId(),
+                account.adminId(), account.provider().name(), account.providerAccountId(),
                 account.email(), account.encryptedAccessToken(), account.encryptedRefreshToken(),
                 account.isPrimary() ? 1 : 0, connectedAt.toString());
         // SELECT back so the caller always receives the canonical row (preserved id, is_primary, connected_at).
         return jdbc.queryForObject(
                 "SELECT * FROM calendar_accounts WHERE admin_id = ? AND provider = ? AND provider_account_id = ?",
                 ROW_MAPPER,
-                account.adminId(), account.provider(), account.providerAccountId());
+                account.adminId(), account.provider().name(), account.providerAccountId());
     }
 
     private CalendarAccount update(CalendarAccount account) {
         int updatedRows = jdbc.update(
                 "UPDATE calendar_accounts SET " +
                 "email = ?, encrypted_access_token = ?, encrypted_refresh_token = ?, " +
-                "is_primary = ?, last_sync_at = ? " +
+                "is_primary = ?, last_sync_at = ?, last_sync_error = ? " +
                 "WHERE id = ? AND admin_id = ?",
                 account.email(),
                 account.encryptedAccessToken(),
                 account.encryptedRefreshToken(),
                 account.isPrimary() ? 1 : 0,
                 account.lastSyncAt() != null ? account.lastSyncAt().toString() : null,
+                account.lastSyncError(),
                 account.id(),
                 account.adminId());
         if (updatedRows == 0) {

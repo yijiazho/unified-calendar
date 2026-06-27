@@ -1,10 +1,12 @@
 import axios from 'axios'
+import type { AxiosInstance } from 'axios'
 
-/** Base Axios instance for authenticated admin endpoints. */
-const client = axios.create({
-  baseURL: '/api',
-  withCredentials: true,
-})
+/** Creates an Axios instance pointed at the API proxy with consistent defaults. */
+export function makeClient(withCredentials: boolean): AxiosInstance {
+  return axios.create({ baseURL: '/api', withCredentials })
+}
+
+const client = makeClient(true)
 
 client.interceptors.response.use(
   res => res,

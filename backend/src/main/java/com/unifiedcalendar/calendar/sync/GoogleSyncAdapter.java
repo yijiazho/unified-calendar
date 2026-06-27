@@ -8,6 +8,7 @@ import com.google.api.services.calendar.model.Event;
 import com.google.api.services.calendar.model.Events;
 import com.unifiedcalendar.calendar.CalendarAccount;
 import com.unifiedcalendar.calendar.CalendarEvent;
+import com.unifiedcalendar.calendar.Provider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -17,7 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Component
-public class GoogleSyncAdapter {
+public class GoogleSyncAdapter implements SyncAdapter {
 
     private static final Logger log = LoggerFactory.getLogger(GoogleSyncAdapter.class);
 
@@ -27,7 +28,13 @@ public class GoogleSyncAdapter {
         this.httpTransport = googleHttpTransport;
     }
 
+    @Override
+    public boolean supports(Provider provider) {
+        return provider == Provider.GOOGLE;
+    }
+
     /** Fetches all timed events (including recurring instances) from the primary Google Calendar for the given window. */
+    @Override
     public List<CalendarEvent> fetchEvents(CalendarAccount account, String accessToken, Instant from, Instant to) {
         Calendar calendarService = new Calendar.Builder(
                 httpTransport,
@@ -89,7 +96,7 @@ public class GoogleSyncAdapter {
                 null,
                 account.adminId(),
                 account.id(),
-                "GOOGLE",
+                Provider.GOOGLE,
                 event.getId(),
                 event.getSummary(),
                 startTimeUtc,

@@ -82,7 +82,7 @@ class OutlookOAuthServiceCallbackTest {
         CalendarAccount saved = service.handleCallback("dummy-code", state);
 
         assertNotNull(saved.id());
-        assertEquals("OUTLOOK", saved.provider());
+        assertEquals(Provider.OUTLOOK, saved.provider());
         assertEquals("oid-001", saved.providerAccountId());
         assertEquals("user@contoso.com", saved.email());
         assertEquals("at-1", encryptionService.decrypt(saved.encryptedAccessToken()));
