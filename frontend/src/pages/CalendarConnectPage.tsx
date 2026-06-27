@@ -10,7 +10,6 @@ import {
 } from '../api/calendar'
 import Modal from '../components/Modal'
 import Button from '../components/Button'
-import SettingsSidebar from '../components/SettingsSidebar'
 import Spinner from '../components/Spinner'
 
 /** Formats an ISO timestamp as a relative time string (e.g. "3 minutes ago"). */
@@ -167,9 +166,7 @@ export default function CalendarConnectPage() {
   }
 
   return (
-    <div style={styles.layout}>
-      <SettingsSidebar />
-
+    <>
       <main style={styles.main}>
         <h2 style={{ marginBottom: 24 }}>Connected Calendars</h2>
 
@@ -227,20 +224,15 @@ export default function CalendarConnectPage() {
           </div>
         </div>
       </Modal>
-    </div>
+    </>
   )
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  layout: {
-    display: 'flex',
-    minHeight: '100svh',
-    textAlign: 'left',
-  },
   main: {
-    flex: 1,
     padding: '32px 40px',
     maxWidth: 680,
+    textAlign: 'left',
   },
   errorBanner: {
     display: 'flex',
