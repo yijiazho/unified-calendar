@@ -7,40 +7,11 @@ import interactionPlugin from '@fullcalendar/interaction'
 import type { EventSourceFunc, EventClickArg, EventContentArg } from '@fullcalendar/core'
 import { getEvents, getAccounts, triggerSync } from '../api/calendar'
 import type { CalendarAccount } from '../types'
+import EventPopover from '../components/EventPopover'
+import type { PopoverState } from '../components/EventPopover'
 
 const PALETTE = ['#4285F4', '#0F9D58', '#9C27B0', '#FF9800', '#F44336']
 const BOOKING_COLOR = '#00897B'
-
-function colorForAccount(accountId: number): string {
-  return PALETTE[accountId % PALETTE.length]
-}
-
-function providerLabel(provider: string): string {
-  if (provider === 'GOOGLE') return 'Google Calendar'
-  if (provider === 'OUTLOOK') return 'Microsoft Outlook'
-  return provider
-}
-
-function formatLocalTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-}
-
-interface PopoverState {
-  x: number
-  y: number
-  title: string
-  start: string
-  end: string
-  email: string
-  provider: string
-  isBooking: boolean
-}
 
 function renderEventContent(arg: EventContentArg) {
   return (
@@ -56,44 +27,53 @@ function renderEventContent(arg: EventContentArg) {
 /** Unified calendar view showing events from all connected providers. */
 export default function DashboardPage() {
   const calendarRef = useRef<FullCalendar>(null)
-  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const waitingForRefetch = useRef(false)
   const [accounts, setAccounts] = useState<CalendarAccount[]>([])
+  const [accountColorMap, setAccountColorMap] = useState<Record<number, string>>({})
   const [syncing, setSyncing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [popover, setPopover] = useState<PopoverState | null>(null)
 
   useEffect(() => {
     getAccounts()
-      .then(res => setAccounts(res.data))
+      .then(res => {
+        setAccounts(res.data)
+        const map: Record<number, string> = {}
+        res.data.forEach((acc, idx) => {
+          map[acc.id] = PALETTE[idx % PALETTE.length]
+        })
+        setAccountColorMap(map)
+      })
       .catch(err => console.error('Failed to load calendar accounts', err))
-  }, [])
-
-  useEffect(() => () => {
-    if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
   }, [])
 
   const fetchEvents: EventSourceFunc = useCallback(async (fetchInfo, successCallback, failureCallback) => {
     try {
       const { data } = await getEvents(fetchInfo.startStr, fetchInfo.endStr)
       successCallback(
-        data.map(event => ({
-          id: String(event.id),
-          title: event.title,
-          start: event.start,
-          end: event.end,
-          backgroundColor: event.isBookingEvent ? BOOKING_COLOR : colorForAccount(event.calendarAccountId),
-          borderColor: event.isBookingEvent ? BOOKING_COLOR : colorForAccount(event.calendarAccountId),
-          extendedProps: {
-            provider: event.provider,
-            email: event.calendarEmail,
-            isBooking: event.isBookingEvent,
-          },
-        }))
+        data.map(event => {
+          const color = event.isBookingEvent
+            ? BOOKING_COLOR
+            : (accountColorMap[event.calendarAccountId] ?? PALETTE[0])
+          return {
+            id: String(event.id),
+            title: event.title,
+            start: event.start,
+            end: event.end,
+            backgroundColor: color,
+            borderColor: color,
+            extendedProps: {
+              provider: event.provider,
+              email: event.calendarEmail,
+              isBooking: event.isBookingEvent,
+            },
+          }
+        })
       )
     } catch {
       failureCallback(new Error('Failed to load events'))
     }
-  }, [])
+  }, [accountColorMap])
 
   const handleEventClick = useCallback((clickInfo: EventClickArg) => {
     const { title, start, end, extendedProps } = clickInfo.event
@@ -110,6 +90,14 @@ export default function DashboardPage() {
     })
   }, [])
 
+  const handleLoading = useCallback((loading: boolean) => {
+    setIsLoading(loading)
+    if (!loading && waitingForRefetch.current) {
+      waitingForRefetch.current = false
+      setSyncing(false)
+    }
+  }, [])
+
   const handleSyncNow = async () => {
     setSyncing(true)
     try {
@@ -117,14 +105,12 @@ export default function DashboardPage() {
     } catch {
       // sync is best-effort; calendar will refetch regardless
     }
-
-    // If the component unmounted while awaiting the request, don't schedule a timer/state update.
-    if (!calendarRef.current) return
-
-    syncTimerRef.current = setTimeout(() => {
+    if (!calendarRef.current) {
       setSyncing(false)
-      calendarRef.current?.getApi().refetchEvents()
-    }, 3000)
+      return
+    }
+    waitingForRefetch.current = true
+    calendarRef.current.getApi().refetchEvents()
   }
 
   return (
@@ -133,7 +119,7 @@ export default function DashboardPage() {
         <h2 style={styles.title}>Calendar</h2>
         <button
           style={{ ...styles.syncBtn, opacity: syncing ? 0.7 : 1 }}
-          onClick={e => { e.stopPropagation(); handleSyncNow() }}
+          onClick={e => { e.stopPropagation(); void handleSyncNow() }}
           disabled={syncing}
         >
           {syncing ? (
@@ -155,7 +141,7 @@ export default function DashboardPage() {
           events={fetchEvents}
           eventContent={renderEventContent}
           eventClick={handleEventClick}
-          loading={setIsLoading}
+          loading={handleLoading}
           height="100vh"
         />
         {isLoading && <div style={styles.loadingBar} />}
@@ -166,7 +152,7 @@ export default function DashboardPage() {
           {accounts.map(acc => (
             <span key={acc.id} style={styles.legendItem}>
               <span
-                style={{ ...styles.legendDot, background: colorForAccount(acc.id) }}
+                style={{ ...styles.legendDot, background: accountColorMap[acc.id] ?? PALETTE[0] }}
               />
               {acc.email}
             </span>
@@ -179,28 +165,7 @@ export default function DashboardPage() {
       )}
 
       {popover && (
-        <div
-          style={{ ...styles.popover, left: popover.x, top: popover.y }}
-          onClick={e => e.stopPropagation()}
-        >
-          <div style={styles.popoverTitle}>{popover.title}</div>
-          {popover.isBooking && <span style={styles.bookingBadge}>Booking</span>}
-          <div style={styles.popoverRow}>
-            <strong>Start</strong> {formatLocalTime(popover.start)}
-          </div>
-          {popover.end && (
-            <div style={styles.popoverRow}>
-              <strong>End</strong> {formatLocalTime(popover.end)}
-            </div>
-          )}
-          <div style={styles.popoverRow}>
-            <strong>Calendar</strong> {popover.email}
-          </div>
-          <div style={styles.popoverRow}>
-            <strong>Provider</strong> {providerLabel(popover.provider)}
-          </div>
-          <button style={styles.popoverClose} onClick={() => setPopover(null)}>✕</button>
-        </div>
+        <EventPopover state={popover} onClose={() => setPopover(null)} />
       )}
     </div>
   )
@@ -286,42 +251,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '50%',
     flexShrink: 0,
   },
-  popover: {
-    position: 'fixed',
-    zIndex: 1000,
-    background: 'var(--bg)',
-    border: '1px solid var(--border)',
-    borderRadius: 8,
-    padding: '14px 16px',
-    boxShadow: 'var(--shadow)',
-    minWidth: 240,
-    maxWidth: 320,
-    fontSize: 14,
-    lineHeight: 1.5,
-  },
-  popoverTitle: {
-    fontWeight: 600,
-    fontSize: 15,
-    color: 'var(--text-h)',
-    marginBottom: 6,
-    paddingRight: 20,
-  },
-  popoverRow: {
-    color: 'var(--text)',
-    marginTop: 4,
-    display: 'flex',
-    gap: 6,
-  },
-  bookingBadge: {
-    display: 'inline-block',
-    background: BOOKING_COLOR,
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: 600,
-    padding: '2px 6px',
-    borderRadius: 4,
-    marginBottom: 6,
-  },
   bookingDot: {
     display: 'inline-block',
     width: 6,
@@ -331,16 +260,5 @@ const styles: Record<string, React.CSSProperties> = {
     marginLeft: 4,
     verticalAlign: 'middle',
     opacity: 0.8,
-  },
-  popoverClose: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    color: 'var(--text)',
-    fontSize: 14,
-    padding: '2px 4px',
   },
 }

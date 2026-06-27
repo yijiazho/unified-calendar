@@ -90,35 +90,35 @@ class GoogleTokenRefresherTest {
     @Test
     @DisplayName("refreshAccessToken returns the new plaintext token for immediate use")
     void refreshReturnsNewToken() {
-        String result = refresher.refreshAccessToken(savedAccount("sub-r1"));
-        assertEquals("new-access-token", result);
+        TokenRefreshResult result = refresher.refreshAccessToken(savedAccount("sub-r1"));
+        assertEquals("new-access-token", result.accessToken());
     }
 
     @Test
-    @DisplayName("refreshAccessToken persists the new encrypted access token in the database")
-    void refreshPersistsEncryptedToken() {
+    @DisplayName("refreshAccessToken returns account with new encrypted access token")
+    void refreshReturnsEncryptedToken() {
         CalendarAccount account = savedAccount("sub-r2");
-        refresher.refreshAccessToken(account);
+        TokenRefreshResult result = refresher.refreshAccessToken(account);
 
-        CalendarAccount updated = repository.findById(account.id(), adminId).orElseThrow();
-        assertEquals("new-access-token", encryptionService.decrypt(updated.encryptedAccessToken()));
+        assertEquals("new-access-token",
+                encryptionService.decrypt(result.updatedAccount().encryptedAccessToken()));
     }
 
     @Test
-    @DisplayName("refreshAccessToken preserves the existing encrypted refresh token")
+    @DisplayName("refreshAccessToken preserves the existing encrypted refresh token in the returned account")
     void refreshPreservesRefreshToken() {
         CalendarAccount account = savedAccount("sub-r3");
-        refresher.refreshAccessToken(account);
+        TokenRefreshResult result = refresher.refreshAccessToken(account);
 
-        CalendarAccount updated = repository.findById(account.id(), adminId).orElseThrow();
-        assertEquals("valid-refresh-token", encryptionService.decrypt(updated.encryptedRefreshToken()));
+        assertEquals("valid-refresh-token",
+                encryptionService.decrypt(result.updatedAccount().encryptedRefreshToken()));
     }
 
     private CalendarAccount savedAccount(String sub) {
         return repository.save(new CalendarAccount(
-                null, adminId, "GOOGLE", sub, "user@gmail.com",
+                null, adminId, Provider.GOOGLE, sub, "user@gmail.com",
                 encryptionService.encrypt("old-access-token"),
                 encryptionService.encrypt("valid-refresh-token"),
-                false, Instant.now(), null));
+                false, Instant.now(), null, null));
     }
 }

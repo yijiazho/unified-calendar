@@ -89,13 +89,13 @@ class OutlookTokenRefresherTest {
                         "{\"access_token\":\"new-access-token\",\"token_type\":\"Bearer\",\"expires_in\":3600}",
                         MediaType.APPLICATION_JSON));
 
-        String result = refresher.refreshAccessToken(savedAccount("oid-r1"));
-        assertEquals("new-access-token", result);
+        TokenRefreshResult result = refresher.refreshAccessToken(savedAccount("oid-r1"));
+        assertEquals("new-access-token", result.accessToken());
     }
 
     @Test
-    @DisplayName("refreshAccessToken persists the new encrypted access token in the database")
-    void refreshPersistsEncryptedToken() {
+    @DisplayName("refreshAccessToken returns account with new encrypted access token")
+    void refreshReturnsEncryptedToken() {
         MockRestClientConfig.mockServer
                 .expect(requestTo(org.hamcrest.Matchers.containsString("/oauth2/v2.0/token")))
                 .andExpect(method(HttpMethod.POST))
@@ -104,14 +104,14 @@ class OutlookTokenRefresherTest {
                         MediaType.APPLICATION_JSON));
 
         CalendarAccount account = savedAccount("oid-r2");
-        refresher.refreshAccessToken(account);
+        TokenRefreshResult result = refresher.refreshAccessToken(account);
 
-        CalendarAccount updated = repository.findById(account.id(), adminId).orElseThrow();
-        assertEquals("new-access-token", encryptionService.decrypt(updated.encryptedAccessToken()));
+        assertEquals("new-access-token",
+                encryptionService.decrypt(result.updatedAccount().encryptedAccessToken()));
     }
 
     @Test
-    @DisplayName("refreshAccessToken preserves the existing encrypted refresh token")
+    @DisplayName("refreshAccessToken preserves the existing encrypted refresh token in the returned account")
     void refreshPreservesRefreshToken() {
         MockRestClientConfig.mockServer
                 .expect(requestTo(org.hamcrest.Matchers.containsString("/oauth2/v2.0/token")))
@@ -121,15 +121,15 @@ class OutlookTokenRefresherTest {
                         MediaType.APPLICATION_JSON));
 
         CalendarAccount account = savedAccount("oid-r3");
-        refresher.refreshAccessToken(account);
+        TokenRefreshResult result = refresher.refreshAccessToken(account);
 
-        CalendarAccount updated = repository.findById(account.id(), adminId).orElseThrow();
-        assertEquals("valid-refresh-token", encryptionService.decrypt(updated.encryptedRefreshToken()));
+        assertEquals("valid-refresh-token",
+                encryptionService.decrypt(result.updatedAccount().encryptedRefreshToken()));
     }
 
     @Test
-    @DisplayName("refreshAccessToken persists a new refresh token when Microsoft returns one (rolling token policy)")
-    void refreshPersistsNewRefreshToken() {
+    @DisplayName("refreshAccessToken returns account with new refresh token when Microsoft returns one (rolling token policy)")
+    void refreshReturnsNewRefreshToken() {
         MockRestClientConfig.mockServer
                 .expect(requestTo(org.hamcrest.Matchers.containsString("/oauth2/v2.0/token")))
                 .andExpect(method(HttpMethod.POST))
@@ -139,18 +139,18 @@ class OutlookTokenRefresherTest {
                         MediaType.APPLICATION_JSON));
 
         CalendarAccount account = savedAccount("oid-r4");
-        refresher.refreshAccessToken(account);
+        TokenRefreshResult result = refresher.refreshAccessToken(account);
 
-        CalendarAccount updated = repository.findById(account.id(), adminId).orElseThrow();
-        assertEquals("new-refresh-token", encryptionService.decrypt(updated.encryptedRefreshToken()),
-                "new refresh token from Microsoft must be persisted to avoid invalid_grant on next refresh");
+        assertEquals("new-refresh-token",
+                encryptionService.decrypt(result.updatedAccount().encryptedRefreshToken()),
+                "new refresh token from Microsoft must be present in updated account to avoid invalid_grant on next refresh");
     }
 
     private CalendarAccount savedAccount(String oid) {
         return repository.save(new CalendarAccount(
-                null, adminId, "OUTLOOK", oid, "user@outlook.com",
+                null, adminId, Provider.OUTLOOK, oid, "user@outlook.com",
                 encryptionService.encrypt("old-access-token"),
                 encryptionService.encrypt("valid-refresh-token"),
-                false, Instant.now(), null));
+                false, Instant.now(), null, null));
     }
 }

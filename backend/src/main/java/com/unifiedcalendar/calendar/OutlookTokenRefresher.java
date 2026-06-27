@@ -23,7 +23,6 @@ public class OutlookTokenRefresher {
     private final String clientSecret;
     private final String tenantId;
     private final EncryptionService encryptionService;
-    private final CalendarAccountRepository repository;
     private final RestClient restClient;
 
     public OutlookTokenRefresher(
@@ -31,18 +30,16 @@ public class OutlookTokenRefresher {
             @Value("${microsoft.client-secret}") String clientSecret,
             @Value("${microsoft.tenant-id:common}") String tenantId,
             EncryptionService encryptionService,
-            CalendarAccountRepository repository,
             @Qualifier("microsoftRestClient") RestClient restClient) {
         this.clientId = clientId;
         this.clientSecret = clientSecret;
         this.tenantId = tenantId.isBlank() ? "common" : tenantId;
         this.encryptionService = encryptionService;
-        this.repository = repository;
         this.restClient = restClient;
     }
 
-    /** Fetches a new access token using the stored refresh token, persists the encrypted value, and returns the plaintext token for immediate use. */
-    public String refreshAccessToken(CalendarAccount account) {
+    /** Fetches a new access token using the stored refresh token and returns the result for the caller to persist. */
+    public TokenRefreshResult refreshAccessToken(CalendarAccount account) {
         String refreshToken = encryptionService.decrypt(account.encryptedRefreshToken());
 
         MultiValueMap<String, String> tokenParams = new LinkedMultiValueMap<>();
@@ -70,8 +67,7 @@ public class OutlookTokenRefresher {
                 tokenResponse.containsKey("access_token"),
                 tokenResponse.containsKey("refresh_token"));
         String newAccessToken = (String) tokenResponse.get("access_token");
-        // Microsoft may return a new refresh token (rolling refresh token policy). Persist it when
-        // present so the next refresh uses the latest token; fall back to the existing one if absent.
+        // Microsoft may return a new refresh token (rolling refresh token policy). Use it when present.
         String newRefreshToken = (String) tokenResponse.get("refresh_token");
         String encryptedRefreshToken = newRefreshToken != null
                 ? encryptionService.encrypt(newRefreshToken)
@@ -82,8 +78,7 @@ public class OutlookTokenRefresher {
                 account.providerAccountId(), account.email(),
                 encryptionService.encrypt(newAccessToken),
                 encryptedRefreshToken,
-                account.isPrimary(), account.connectedAt(), account.lastSyncAt());
-        repository.save(updated);
-        return newAccessToken;
+                account.isPrimary(), account.connectedAt(), account.lastSyncAt(), null);
+        return new TokenRefreshResult(newAccessToken, updated);
     }
 }

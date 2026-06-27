@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 @org.springframework.context.annotation.Profile("!test")
-public class CalendarSyncService {
+public class CalendarSyncService implements CalendarSyncer {
 
     private static final Logger log = LoggerFactory.getLogger(CalendarSyncService.class);
 
@@ -21,28 +21,26 @@ public class CalendarSyncService {
 
     private final CalendarAccountRepository calendarAccountRepository;
     private final CalendarEventRepository calendarEventRepository;
-    private final GoogleSyncAdapter googleSyncAdapter;
-    private final OutlookSyncAdapter outlookSyncAdapter;
     private final GoogleTokenRefresher googleTokenRefresher;
     private final OutlookTokenRefresher outlookTokenRefresher;
+    private final List<SyncAdapter> syncAdapters;
 
     public CalendarSyncService(
             CalendarAccountRepository calendarAccountRepository,
             CalendarEventRepository calendarEventRepository,
-            GoogleSyncAdapter googleSyncAdapter,
-            OutlookSyncAdapter outlookSyncAdapter,
             GoogleTokenRefresher googleTokenRefresher,
-            OutlookTokenRefresher outlookTokenRefresher) {
+            OutlookTokenRefresher outlookTokenRefresher,
+            List<SyncAdapter> syncAdapters) {
         this.calendarAccountRepository = calendarAccountRepository;
         this.calendarEventRepository = calendarEventRepository;
-        this.googleSyncAdapter = googleSyncAdapter;
-        this.outlookSyncAdapter = outlookSyncAdapter;
         this.googleTokenRefresher = googleTokenRefresher;
         this.outlookTokenRefresher = outlookTokenRefresher;
+        this.syncAdapters = syncAdapters;
     }
 
     /** Runs every 5 minutes; each account is isolated so one failure never blocks the others. */
     @Scheduled(fixedDelay = 300_000)
+    @Override
     public void syncAll() {
         if (!running.compareAndSet(false, true)) {
             log.info("Sync already in progress, skipping trigger");
@@ -68,18 +66,21 @@ public class CalendarSyncService {
         Instant now = Instant.now();
         Instant from = now.minus(1, ChronoUnit.DAYS);
         Instant to   = now.plus(60, ChronoUnit.DAYS);
-        String accessToken;
+
+        TokenRefreshResult refreshResult;
         try {
-            accessToken = refreshToken(account);
+            refreshResult = refreshToken(account);
         } catch (Exception e) {
-            log.error("Token refresh failed for account {} — marking last_sync_at null", account.id(), e);
-            markSyncFailed(account);
+            log.error("Token refresh failed for account {} — recording error", account.id(), e);
+            markSyncFailed(account, e.getMessage());
             return;
         }
+        // Persist the updated tokens (e.g. rotated Microsoft refresh token) before any API call.
+        calendarAccountRepository.save(refreshResult.updatedAccount());
 
         List<CalendarEvent> events;
         try {
-            events = fetchEvents(account, accessToken, from, to);
+            events = fetchEvents(account, refreshResult.accessToken(), from, to);
         } catch (Exception e) {
             log.error("Provider API error for account {} ({}): {}", account.id(), account.provider(), e.getMessage(), e);
             return;
@@ -91,33 +92,30 @@ public class CalendarSyncService {
         }
         calendarEventRepository.deleteByCalendarAccountIdAndProviderEventIdNotIn(account.id(), seenIds);
 
-        // Only update last_sync_at — token fields were already persisted by the token refresher and
-        // must not be overwritten here (Microsoft may have issued a rotated refresh token).
+        // Record successful sync — also clears last_sync_error.
         calendarAccountRepository.updateLastSyncAt(account.id(), Instant.now());
 
         log.info("Synced {} event(s) for account {} ({})", events.size(), account.id(), account.provider());
     }
 
-    private String refreshToken(CalendarAccount account) {
+    private TokenRefreshResult refreshToken(CalendarAccount account) {
         return switch (account.provider()) {
-            case "GOOGLE"  -> googleTokenRefresher.refreshAccessToken(account);
-            case "OUTLOOK" -> outlookTokenRefresher.refreshAccessToken(account);
-            default -> throw new IllegalArgumentException("Unknown provider: " + account.provider());
+            case GOOGLE  -> googleTokenRefresher.refreshAccessToken(account);
+            case OUTLOOK -> outlookTokenRefresher.refreshAccessToken(account);
         };
     }
 
     private List<CalendarEvent> fetchEvents(CalendarAccount account, String accessToken, Instant from, Instant to) {
-        return switch (account.provider()) {
-            case "GOOGLE"  -> googleSyncAdapter.fetchEvents(account, accessToken, from, to);
-            case "OUTLOOK" -> outlookSyncAdapter.fetchEvents(account, accessToken, from, to);
-            default -> throw new IllegalArgumentException("Unknown provider: " + account.provider());
-        };
+        return syncAdapters.stream()
+                .filter(a -> a.supports(account.provider()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("No sync adapter for provider: " + account.provider()))
+                .fetchEvents(account, accessToken, from, to);
     }
 
-    /** Sets last_sync_at to null to signal that this account has not successfully synced. */
-    private void markSyncFailed(CalendarAccount account) {
+    private void markSyncFailed(CalendarAccount account, String error) {
         try {
-            calendarAccountRepository.updateLastSyncAt(account.id(), null);
+            calendarAccountRepository.markSyncFailed(account.id(), error);
         } catch (Exception ex) {
             log.warn("Could not mark account {} as sync-failed: {}", account.id(), ex.getMessage());
         }

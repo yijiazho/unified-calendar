@@ -3,15 +3,13 @@ package com.unifiedcalendar.workinghours;
 import com.unifiedcalendar.auth.ValidationException;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 @Service
 public class WorkingHoursService {
-
-    private static final Pattern TIME_PATTERN = Pattern.compile("^([01]\\d|2[0-3]):[0-5]\\d$");
 
     private final WorkingHoursRepository repository;
 
@@ -48,28 +46,15 @@ public class WorkingHoursService {
             if (dto == null) {
                 throw new ValidationException("Working-hours entry must not be null");
             }
-            if (dto.dayOfWeek() == null) {
-                throw new ValidationException("dayOfWeek is required");
-            }
-            if (dto.dayOfWeek() < 0 || dto.dayOfWeek() > 6) {
-                throw new ValidationException("dayOfWeek must be between 0 and 6");
-            }
-            if (!seen.add(dto.dayOfWeek())) {
+            // null/range/format checks are expressed by @NotNull, @Min, @Max, @Pattern on WorkingHoursDto.
+            if (dto.dayOfWeek() != null && !seen.add(dto.dayOfWeek())) {
                 throw new ValidationException("Duplicate dayOfWeek: " + dto.dayOfWeek());
             }
-            if (!isValidTime(dto.startTime())) {
-                throw new ValidationException("Invalid startTime: " + dto.startTime());
-            }
-            if (!isValidTime(dto.endTime())) {
-                throw new ValidationException("Invalid endTime: " + dto.endTime());
-            }
-            if (dto.startTime().compareTo(dto.endTime()) >= 0) {
+            // Null guard before LocalTime.parse defends against direct-service calls that bypass Bean Validation.
+            if (dto.startTime() != null && dto.endTime() != null
+                    && !LocalTime.parse(dto.startTime()).isBefore(LocalTime.parse(dto.endTime()))) {
                 throw new ValidationException("startTime must be strictly before endTime for dayOfWeek " + dto.dayOfWeek());
             }
         }
-    }
-
-    private boolean isValidTime(String time) {
-        return time != null && TIME_PATTERN.matcher(time).matches();
     }
 }

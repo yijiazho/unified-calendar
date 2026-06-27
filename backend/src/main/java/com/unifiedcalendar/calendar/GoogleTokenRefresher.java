@@ -15,23 +15,20 @@ public class GoogleTokenRefresher {
     private final String clientSecret;
     private final HttpTransport httpTransport;
     private final EncryptionService encryptionService;
-    private final CalendarAccountRepository repository;
 
     public GoogleTokenRefresher(
             @Value("${google.client-id}") String clientId,
             @Value("${google.client-secret}") String clientSecret,
             HttpTransport googleHttpTransport,
-            EncryptionService encryptionService,
-            CalendarAccountRepository repository) {
+            EncryptionService encryptionService) {
         this.clientId = clientId;
         this.clientSecret = clientSecret;
         this.httpTransport = googleHttpTransport;
         this.encryptionService = encryptionService;
-        this.repository = repository;
     }
 
-    /** Fetches a new access token using the stored refresh token, persists the encrypted value, and returns the plaintext token for immediate use. */
-    public String refreshAccessToken(CalendarAccount account) {
+    /** Fetches a new access token using the stored refresh token and returns the result for the caller to persist. */
+    public TokenRefreshResult refreshAccessToken(CalendarAccount account) {
         String refreshToken = encryptionService.decrypt(account.encryptedRefreshToken());
 
         GoogleTokenResponse tokenResponse;
@@ -50,8 +47,7 @@ public class GoogleTokenRefresher {
                 account.providerAccountId(), account.email(),
                 encryptionService.encrypt(newAccessToken),
                 account.encryptedRefreshToken(),
-                account.isPrimary(), account.connectedAt(), account.lastSyncAt());
-        repository.save(updated);
-        return newAccessToken;
+                account.isPrimary(), account.connectedAt(), account.lastSyncAt(), null);
+        return new TokenRefreshResult(newAccessToken, updated);
     }
 }

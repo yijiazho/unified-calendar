@@ -50,8 +50,8 @@ class JdbcCalendarAccountRepositoryTest {
     @Test
     @DisplayName("save inserts a new account and findById returns it")
     void saveInsertAndFindById() {
-        CalendarAccount account = new CalendarAccount(null, adminId, "GOOGLE", "sub-001",
-                "user@gmail.com", "enc_access", "enc_refresh", false, Instant.now(), null);
+        CalendarAccount account = new CalendarAccount(null, adminId, Provider.GOOGLE, "sub-001",
+                "user@gmail.com", "enc_access", "enc_refresh", false, Instant.now(), null, null);
 
         CalendarAccount saved = repository.save(account);
 
@@ -65,12 +65,12 @@ class JdbcCalendarAccountRepositoryTest {
     @Test
     @DisplayName("save with duplicate (admin_id, provider, provider_account_id) upserts and does not duplicate")
     void saveUpsertDoesNotDuplicate() {
-        CalendarAccount first = new CalendarAccount(null, adminId, "GOOGLE", "sub-001",
-                "user@gmail.com", "access_v1", "refresh_v1", false, Instant.now(), null);
+        CalendarAccount first = new CalendarAccount(null, adminId, Provider.GOOGLE, "sub-001",
+                "user@gmail.com", "access_v1", "refresh_v1", false, Instant.now(), null, null);
         repository.save(first);
 
-        CalendarAccount second = new CalendarAccount(null, adminId, "GOOGLE", "sub-001",
-                "user@gmail.com", "access_v2", "refresh_v2", false, Instant.now(), null);
+        CalendarAccount second = new CalendarAccount(null, adminId, Provider.GOOGLE, "sub-001",
+                "user@gmail.com", "access_v2", "refresh_v2", false, Instant.now(), null, null);
         repository.save(second);
 
         List<CalendarAccount> all = repository.findAllByAdminId(adminId);
@@ -87,10 +87,10 @@ class JdbcCalendarAccountRepositoryTest {
         Long otherId = jdbc.queryForObject(
                 "SELECT id FROM admins WHERE slug = 'other-slug'", Long.class);
 
-        repository.save(new CalendarAccount(null, adminId, "GOOGLE", "sub-mine",
-                "mine@gmail.com", "tok", "ref", false, Instant.now(), null));
-        repository.save(new CalendarAccount(null, otherId, "GOOGLE", "sub-other",
-                "other@gmail.com", "tok", "ref", false, Instant.now(), null));
+        repository.save(new CalendarAccount(null, adminId, Provider.GOOGLE, "sub-mine",
+                "mine@gmail.com", "tok", "ref", false, Instant.now(), null, null));
+        repository.save(new CalendarAccount(null, otherId, Provider.GOOGLE, "sub-other",
+                "other@gmail.com", "tok", "ref", false, Instant.now(), null, null));
 
         List<CalendarAccount> mine = repository.findAllByAdminId(adminId);
         assertEquals(1, mine.size());
@@ -100,8 +100,8 @@ class JdbcCalendarAccountRepositoryTest {
     @Test
     @DisplayName("delete removes the account; subsequent findById returns empty")
     void deleteRemovesAccount() {
-        CalendarAccount saved = repository.save(new CalendarAccount(null, adminId, "GOOGLE", "sub-del",
-                "del@gmail.com", "tok", "ref", false, Instant.now(), null));
+        CalendarAccount saved = repository.save(new CalendarAccount(null, adminId, Provider.GOOGLE, "sub-del",
+                "del@gmail.com", "tok", "ref", false, Instant.now(), null, null));
 
         repository.delete(saved.id(), adminId);
 
@@ -116,8 +116,8 @@ class JdbcCalendarAccountRepositoryTest {
         Long attackerId = jdbc.queryForObject(
                 "SELECT id FROM admins WHERE slug = 'attacker-slug'", Long.class);
 
-        CalendarAccount saved = repository.save(new CalendarAccount(null, adminId, "GOOGLE", "sub-safe",
-                "safe@gmail.com", "tok", "ref", false, Instant.now(), null));
+        CalendarAccount saved = repository.save(new CalendarAccount(null, adminId, Provider.GOOGLE, "sub-safe",
+                "safe@gmail.com", "tok", "ref", false, Instant.now(), null, null));
 
         repository.delete(saved.id(), attackerId);   // wrong adminId — must be a no-op
 
@@ -128,10 +128,10 @@ class JdbcCalendarAccountRepositoryTest {
     @Test
     @DisplayName("setPrimary marks one account primary and clears all others for that admin")
     void setPrimaryMarksCorrectly() {
-        CalendarAccount a1 = repository.save(new CalendarAccount(null, adminId, "GOOGLE", "sub-1",
-                "a@gmail.com", "tok", "ref", false, Instant.now(), null));
-        CalendarAccount a2 = repository.save(new CalendarAccount(null, adminId, "OUTLOOK", "oid-2",
-                "b@outlook.com", "tok", "ref", false, Instant.now(), null));
+        CalendarAccount a1 = repository.save(new CalendarAccount(null, adminId, Provider.GOOGLE, "sub-1",
+                "a@gmail.com", "tok", "ref", false, Instant.now(), null, null));
+        CalendarAccount a2 = repository.save(new CalendarAccount(null, adminId, Provider.OUTLOOK, "oid-2",
+                "b@outlook.com", "tok", "ref", false, Instant.now(), null, null));
 
         repository.setPrimary(a1.id(), adminId);
 
@@ -147,8 +147,8 @@ class JdbcCalendarAccountRepositoryTest {
     @Test
     @DisplayName("delete cascades to calendar_events via FK — PRAGMA foreign_keys must be ON")
     void deleteAccountCascadesToEvents() {
-        CalendarAccount account = repository.save(new CalendarAccount(null, adminId, "GOOGLE", "sub-cascade",
-                "cascade@gmail.com", "tok", "ref", false, Instant.now(), null));
+        CalendarAccount account = repository.save(new CalendarAccount(null, adminId, Provider.GOOGLE, "sub-cascade",
+                "cascade@gmail.com", "tok", "ref", false, Instant.now(), null, null));
 
         jdbc.update(
                 "INSERT INTO calendar_events " +
@@ -171,11 +171,11 @@ class JdbcCalendarAccountRepositoryTest {
     @Test
     @DisplayName("save with non-null id updates the existing row")
     void saveWithIdUpdatesRow() {
-        CalendarAccount inserted = repository.save(new CalendarAccount(null, adminId, "GOOGLE", "sub-upd",
-                "upd@gmail.com", "old_access", "old_refresh", false, Instant.now(), null));
+        CalendarAccount inserted = repository.save(new CalendarAccount(null, adminId, Provider.GOOGLE, "sub-upd",
+                "upd@gmail.com", "old_access", "old_refresh", false, Instant.now(), null, null));
 
-        CalendarAccount updated = new CalendarAccount(inserted.id(), adminId, "GOOGLE", "sub-upd",
-                "upd@gmail.com", "new_access", "new_refresh", false, inserted.connectedAt(), null);
+        CalendarAccount updated = new CalendarAccount(inserted.id(), adminId, Provider.GOOGLE, "sub-upd",
+                "upd@gmail.com", "new_access", "new_refresh", false, inserted.connectedAt(), null, null);
         repository.save(updated);
 
         CalendarAccount found = repository.findById(inserted.id(), adminId).orElseThrow();

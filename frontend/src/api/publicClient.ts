@@ -1,9 +1,6 @@
-import axios from 'axios'
+import { makeClient } from './client'
 
 /** Axios instance for unauthenticated visitor endpoints — no 401 redirect. */
-const publicClient = axios.create({
-  baseURL: '/api',
-  withCredentials: false,
-})
+const publicClient = makeClient(false)
 
 export default publicClient

@@ -80,8 +80,13 @@ function AccountCard({
         <ProviderIcon provider={account.provider} />
         <div style={styles.cardInfo}>
           <span style={styles.email}>{account.email}</span>
-          {/* TODO: show lastSyncedAt once the backend exposes it — backend currently only returns connectedAt */}
-          <span style={styles.syncTime}>Connected {relativeTime(account.connectedAt)}</span>
+          {account.lastSyncError ? (
+            <span style={styles.syncError}>Sync failed: {account.lastSyncError}</span>
+          ) : account.lastSyncAt ? (
+            <span style={styles.syncTime}>Last synced {relativeTime(account.lastSyncAt)}</span>
+          ) : (
+            <span style={styles.syncTime}>Connected {relativeTime(account.connectedAt)}</span>
+          )}
         </div>
         {account.isPrimary && <span style={styles.primaryBadge}>Primary</span>}
       </div>
@@ -199,8 +204,8 @@ export default function CalendarConnectPage() {
         <div style={styles.connectSection}>
           <h3 style={styles.connectHeading}>Connect a new account</h3>
           <div style={styles.connectButtons}>
-            <Button onClick={connectGoogle}>Connect Google Calendar</Button>
-            <Button onClick={connectOutlook}>Connect Microsoft Outlook</Button>
+            <Button onClick={() => { window.location.href = connectGoogle() }}>Connect Google Calendar</Button>
+            <Button onClick={() => { window.location.href = connectOutlook() }}>Connect Microsoft Outlook</Button>
           </div>
         </div>
       </main>
@@ -296,6 +301,10 @@ const styles: Record<string, React.CSSProperties> = {
   syncTime: {
     fontSize: 13,
     color: 'var(--text)',
+  },
+  syncError: {
+    fontSize: 13,
+    color: '#dc2626',
   },
   primaryBadge: {
     fontSize: 12,

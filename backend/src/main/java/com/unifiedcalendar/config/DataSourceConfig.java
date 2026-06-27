@@ -41,6 +41,7 @@ public class DataSourceConfig {
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl(jdbcUrl);
         config.setDriverClassName("org.sqlite.JDBC");
+        // SQLite is single-writer; pool=1 avoids lock contention without any WAL-mode changes.
         config.setMaximumPoolSize(1);
         // M1: SQLite JDBC ignores semicolon-delimited statements in connectionInitSql,
         // so the second PRAGMA would be silently skipped. Use driver properties instead.

@@ -8,6 +8,7 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleTokenResponse;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.unifiedcalendar.config.EncryptionService;
+import com.unifiedcalendar.calendar.Provider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -116,10 +117,10 @@ public class GoogleOAuthService {
         }
 
         CalendarAccount account = new CalendarAccount(
-                null, adminId, "GOOGLE", sub, email,
+                null, adminId, Provider.GOOGLE, sub, email,
                 encryptionService.encrypt(accessToken),
                 encryptionService.encrypt(refreshToken),
-                false, Instant.now(), null);
+                false, Instant.now(), null, null);
         return repository.save(account);
     }
 

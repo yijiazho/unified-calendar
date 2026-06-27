@@ -11,6 +11,8 @@ export interface CalendarAccount {
   email: string
   isPrimary: boolean
   connectedAt: string
+  lastSyncAt?: string
+  lastSyncError?: string
 }
 
 export interface CalendarEvent {

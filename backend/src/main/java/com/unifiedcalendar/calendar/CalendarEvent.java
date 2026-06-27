@@ -6,7 +6,7 @@ public record CalendarEvent(
         Long id,
         Long adminId,
         Long calendarAccountId,
-        String provider,
+        Provider provider,
         String providerEventId,
         String title,
         Instant startTimeUtc,

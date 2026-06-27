@@ -1,13 +1,17 @@
 package com.unifiedcalendar.calendar.sync;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.unifiedcalendar.calendar.CalendarAccount;
 import com.unifiedcalendar.calendar.CalendarEvent;
+import com.unifiedcalendar.calendar.Provider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -18,22 +22,30 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Component
-public class OutlookSyncAdapter {
+public class OutlookSyncAdapter implements SyncAdapter {
 
     private static final Logger log = LoggerFactory.getLogger(OutlookSyncAdapter.class);
     private static final String GRAPH_CALENDAR_VIEW = "https://graph.microsoft.com/v1.0/me/calendarView";
 
     private final RestClient restClient;
+    private final ObjectMapper objectMapper;
 
-    public OutlookSyncAdapter(@Qualifier("microsoftRestClient") RestClient restClient) {
+    public OutlookSyncAdapter(
+            @Qualifier("microsoftRestClient") RestClient restClient,
+            ObjectMapper objectMapper) {
         this.restClient = restClient;
+        this.objectMapper = objectMapper;
+    }
+
+    @Override
+    public boolean supports(Provider provider) {
+        return provider == Provider.OUTLOOK;
     }
 
     /** Fetches all non-recurring events from Microsoft Graph calendarView for the given window. */
+    @Override
     public List<CalendarEvent> fetchEvents(CalendarAccount account, String accessToken, Instant from, Instant to) {
         String initialUrl = GRAPH_CALENDAR_VIEW
                 + "?startDateTime=" + from.truncatedTo(ChronoUnit.SECONDS)
@@ -93,7 +105,7 @@ public class OutlookSyncAdapter {
 
     /**
      * Decodes the JWT payload and logs aud/scp/tid claims to help diagnose 401 errors from Graph.
-     * These claims are non-secret token metadata, safe to log.
+     * Uses ObjectMapper for robust JSON parsing instead of regex on the raw payload string.
      */
     private void logTokenClaims(Long accountId, String token) {
         try {
@@ -102,20 +114,15 @@ public class OutlookSyncAdapter {
                 log.error("Token for account {} is not a JWT (got {} segments, expected 3)", accountId, parts.length);
                 return;
             }
-            // JWT payload is base64url-encoded; add padding if needed
             String raw = parts[1];
             int pad = (4 - raw.length() % 4) % 4;
             byte[] bytes = Base64.getUrlDecoder().decode(raw + "=".repeat(pad));
-            String payload = new String(bytes, StandardCharsets.UTF_8);
-            // Extract aud, scp, tid without adding a JSON library dependency
-            Pattern p = Pattern.compile("\"(aud|scp|tid|roles)\":\"([^\"]*)\"");
-            Matcher m = p.matcher(payload);
-            StringBuilder claims = new StringBuilder();
-            while (m.find()) {
-                claims.append(m.group(1)).append("=[").append(m.group(2)).append("] ");
-            }
-            log.debug("Token claims for account {}: {}", accountId,
-                    claims.length() > 0 ? claims : "(none matched — check raw payload format)");
+            Map<String, Object> claims = objectMapper.readValue(
+                    new String(bytes, StandardCharsets.UTF_8),
+                    new TypeReference<Map<String, Object>>() {});
+            log.debug("Token claims for account {}: aud=[{}] scp=[{}] tid=[{}] roles=[{}]",
+                    accountId,
+                    claims.get("aud"), claims.get("scp"), claims.get("tid"), claims.get("roles"));
         } catch (Exception e) {
             log.error("Could not decode token for account {}: {}", accountId, e.getMessage());
         }
@@ -151,7 +158,7 @@ public class OutlookSyncAdapter {
                 null,
                 account.adminId(),
                 account.id(),
-                "OUTLOOK",
+                Provider.OUTLOOK,
                 (String) event.get("id"),
                 (String) event.get("subject"),
                 startTimeUtc,

@@ -1,5 +1,6 @@
 package com.unifiedcalendar.calendar;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,6 +23,9 @@ public interface CalendarAccountRepository {
     /** Marks the given account as the admin's primary calendar (and unmarks any previous primary). */
     void setPrimary(Long id, Long adminId);
 
-    /** Updates only last_sync_at — used by the sync engine to avoid overwriting token fields. */
-    void updateLastSyncAt(Long id, java.time.Instant lastSyncAt);
+    /** Updates last_sync_at to record a successful sync and clears any previous error. */
+    void updateLastSyncAt(Long id, Instant lastSyncAt);
+
+    /** Records a sync failure message without touching last_sync_at (preserves the last good sync time). */
+    void markSyncFailed(Long id, String error);
 }

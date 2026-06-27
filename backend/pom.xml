@@ -57,6 +57,12 @@
 			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
 
+		<!-- Jakarta Bean Validation — enables @Valid, @NotBlank, @Pattern, @Min/@Max on DTOs -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+
 		<!-- Google API client (OAuth2 + Calendar sync) -->
 		<dependency>
 			<groupId>com.google.api-client</groupId>

@@ -10,6 +10,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.unifiedcalendar.calendar.Provider;
+
 import java.time.Instant;
 import java.util.List;
 
@@ -53,7 +55,7 @@ class JdbcCalendarEventRepositoryTest {
     }
 
     private CalendarEvent event(String providerEventId, Instant start, Instant end) {
-        return new CalendarEvent(null, adminId, accountId, "GOOGLE", providerEventId,
+        return new CalendarEvent(null, adminId, accountId, Provider.GOOGLE, providerEventId,
                 "Test Event", start, end, false, null, null);
     }
 
@@ -73,7 +75,7 @@ class JdbcCalendarEventRepositoryTest {
     void upsertUpdatesExistingRow() {
         repository.upsert(event("evt-dup",
                 Instant.parse("2024-06-01T09:00:00Z"), Instant.parse("2024-06-01T10:00:00Z")));
-        repository.upsert(new CalendarEvent(null, adminId, accountId, "GOOGLE", "evt-dup",
+        repository.upsert(new CalendarEvent(null, adminId, accountId, Provider.GOOGLE, "evt-dup",
                 "Updated Title",
                 Instant.parse("2024-06-01T10:00:00Z"), Instant.parse("2024-06-01T11:00:00Z"),
                 false, null, null));
@@ -253,7 +255,7 @@ class JdbcCalendarEventRepositoryTest {
                 adminId, accountId);
 
         // Sync upsert should update title/times but not touch is_booking_event
-        repository.upsert(new CalendarEvent(null, adminId, accountId, "GOOGLE", "booking-evt",
+        repository.upsert(new CalendarEvent(null, adminId, accountId, Provider.GOOGLE, "booking-evt",
                 "Booking Updated",
                 Instant.parse("2024-06-01T09:00:00Z"), Instant.parse("2024-06-01T10:00:00Z"),
                 false, null, null));
