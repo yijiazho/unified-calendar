@@ -1,5 +1,6 @@
 import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import AppLayout from './components/AppLayout'
 import Spinner from './components/Spinner'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
@@ -46,9 +47,14 @@ const router = createBrowserRouter([
       {
         element: <ProtectedRoute />,
         children: [
-          { path: '/dashboard', element: <DashboardPage /> },
-          { path: '/settings/calendars', element: <CalendarConnectPage /> },
-          { path: '/settings/hours', element: <WorkingHoursPage /> },
+          {
+            element: <AppLayout />,
+            children: [
+              { path: '/dashboard', element: <DashboardPage /> },
+              { path: '/settings/calendars', element: <CalendarConnectPage /> },
+              { path: '/settings/hours', element: <WorkingHoursPage /> },
+            ],
+          },
         ],
       },
       { path: '/s/:slug', element: <PublicSchedulePage /> },

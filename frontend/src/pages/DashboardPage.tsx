@@ -6,12 +6,20 @@ import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import type { EventSourceFunc, EventClickArg, EventContentArg } from '@fullcalendar/core'
 import { getEvents, getAccounts, triggerSync } from '../api/calendar'
+import { getWorkingHours } from '../api/workingHours'
 import type { CalendarAccount } from '../types'
 import EventPopover from '../components/EventPopover'
 import type { PopoverState } from '../components/EventPopover'
 
 const PALETTE = ['#4285F4', '#0F9D58', '#9C27B0', '#FF9800', '#F44336']
 const BOOKING_COLOR = '#00897B'
+
+/** FullCalendar businessHours slot — daysOfWeek uses FC convention: 0=Sun, 1=Mon…6=Sat. */
+interface BusinessHourSlot {
+  daysOfWeek: number[]
+  startTime: string
+  endTime: string
+}
 
 function renderEventContent(arg: EventContentArg) {
   return (
@@ -30,6 +38,7 @@ export default function DashboardPage() {
   const waitingForRefetch = useRef(false)
   const [accounts, setAccounts] = useState<CalendarAccount[]>([])
   const [accountColorMap, setAccountColorMap] = useState<Record<number, string>>({})
+  const [businessHours, setBusinessHours] = useState<BusinessHourSlot[]>([])
   const [syncing, setSyncing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [popover, setPopover] = useState<PopoverState | null>(null)
@@ -45,6 +54,21 @@ export default function DashboardPage() {
         setAccountColorMap(map)
       })
       .catch(err => console.error('Failed to load calendar accounts', err))
+  }, [])
+
+  useEffect(() => {
+    getWorkingHours()
+      .then(res => {
+        // Our dayOfWeek: 0=Mon…6=Sun. FullCalendar: 0=Sun, 1=Mon…6=Sat.
+        setBusinessHours(
+          res.data.map(wh => ({
+            daysOfWeek: [(wh.dayOfWeek + 1) % 7],
+            startTime: wh.startTime,
+            endTime: wh.endTime,
+          }))
+        )
+      })
+      .catch(err => console.error('Failed to load working hours', err))
   }, [])
 
   const fetchEvents: EventSourceFunc = useCallback(async (fetchInfo, successCallback, failureCallback) => {
@@ -139,15 +163,16 @@ export default function DashboardPage() {
             right: 'dayGridMonth,timeGridWeek,timeGridDay',
           }}
           events={fetchEvents}
+          businessHours={businessHours.length > 0 ? businessHours : false}
           eventContent={renderEventContent}
           eventClick={handleEventClick}
           loading={handleLoading}
-          height="100vh"
+          height="calc(100vh - var(--nav-h))"
         />
         {isLoading && <div style={styles.loadingBar} />}
       </div>
 
-      {accounts.length > 0 && (
+      {(accounts.length > 0 || businessHours.length > 0) && (
         <div style={styles.legend}>
           {accounts.map(acc => (
             <span key={acc.id} style={styles.legendItem}>
@@ -157,10 +182,18 @@ export default function DashboardPage() {
               {acc.email}
             </span>
           ))}
-          <span style={styles.legendItem}>
-            <span style={{ ...styles.legendDot, background: BOOKING_COLOR }} />
-            Bookings
-          </span>
+          {accounts.length > 0 && (
+            <span style={styles.legendItem}>
+              <span style={{ ...styles.legendDot, background: BOOKING_COLOR }} />
+              Bookings
+            </span>
+          )}
+          {businessHours.length > 0 && (
+            <span style={styles.legendItem}>
+              <span style={styles.legendUnavailableDot} />
+              Unavailable
+            </span>
+          )}
         </div>
       )}
 
@@ -250,6 +283,14 @@ const styles: Record<string, React.CSSProperties> = {
     height: 12,
     borderRadius: '50%',
     flexShrink: 0,
+  },
+  legendUnavailableDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 3,
+    flexShrink: 0,
+    background: 'var(--fc-non-business-color, rgba(0,0,0,0.07))',
+    border: '1px solid var(--border)',
   },
   bookingDot: {
     display: 'inline-block',

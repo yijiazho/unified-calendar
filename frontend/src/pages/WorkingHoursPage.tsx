@@ -5,7 +5,6 @@ import type { WorkingHours } from '../types'
 import { getWorkingHours, saveWorkingHours } from '../api/workingHours'
 import Button from '../components/Button'
 import Modal from '../components/Modal'
-import SettingsSidebar from '../components/SettingsSidebar'
 import Spinner from '../components/Spinner'
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -139,9 +138,7 @@ export default function WorkingHoursPage() {
   }
 
   return (
-    <div style={styles.layout}>
-      <SettingsSidebar />
-
+    <>
       <main style={styles.main}>
         <h2 style={{ marginBottom: 24 }}>Working Hours</h2>
 
@@ -238,20 +235,15 @@ export default function WorkingHoursPage() {
           </div>
         </div>
       </Modal>
-    </div>
+    </>
   )
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  layout: {
-    display: 'flex',
-    minHeight: '100svh',
-    textAlign: 'left',
-  },
   main: {
-    flex: 1,
     padding: '32px 40px',
     maxWidth: 680,
+    textAlign: 'left',
   },
   errorBanner: {
     display: 'flex',
