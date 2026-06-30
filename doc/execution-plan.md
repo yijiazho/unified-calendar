@@ -20,8 +20,8 @@ Each task lists what must be done before it can start.
 | TASK-012 BE calendar-sync | 002, 004, 007, 008 | ✓ |
 | TASK-013 BE unified-calendar-api | 002, 004, 012 | ✓ |
 | TASK-014 FE unified-calendar-view | 003, 006, 013 | ✓ |
-| TASK-015 BE availability-engine | 004, 010, 012 | |
-| TASK-016 BE public-api | 004, 005, 015 | |
+| TASK-015 BE availability-engine | 004, 010, 012 | ✓ |
+| TASK-016 BE public-api | 004, 005, 015 | ✓ |
 | TASK-017 FE public-availability-page | 003, 016 | |
 | TASK-018 BE booking | 004, 007, 008, 015, 020 | |
 | TASK-019 FE booking-form | 003, 017, 018 | |
@@ -65,10 +65,10 @@ Wave 6  ────────────────────────
   ✓ 009 FE calendar-connect   ✓ 012 BE calendar-sync
 
 Wave 7  ──────────────────────────────────────────────────────────────────
-  ✓ 013 BE unified-calendar-api    015 BE availability-engine
+  ✓ 013 BE unified-calendar-api  ✓ 015 BE availability-engine
 
 Wave 8  ──────────────────────────────────────────────────────────────────
-  ✓ 014 FE unified-calendar-view   016 BE public-api
+  ✓ 014 FE unified-calendar-view ✓ 016 BE public-api
   018 BE booking
 
 Wave 9  ──────────────────────────────────────────────────────────────────
@@ -151,8 +151,8 @@ Manual "Sync Now" refreshes the calendar.
 ### Milestone 4 — Public availability page (Phase 1 end-to-end)
 
 ```
-15. TASK-015  BE availability engine
-16. TASK-016  BE public API
+15. ✓ TASK-015  BE availability engine
+16. ✓ TASK-016  BE public API
 17. TASK-017  FE public availability page
 ```
 
@@ -221,8 +221,8 @@ in the admin's calendar → both receive updated emails with new ICS.
 | 12 | TASK-012 BE calendar-sync | BE | 3 | ✓ |
 | 13 | TASK-013 BE unified-calendar-api | BE | 3 | ✓ |
 | 14 | TASK-014 FE unified-calendar-view | FE | 3 | ✓ |
-| 15 | TASK-015 BE availability-engine | BE | 4 | |
-| 16 | TASK-016 BE public-api | BE | 4 | |
+| 15 | TASK-015 BE availability-engine | BE | 4 | ✓ |
+| 16 | TASK-016 BE public-api | BE | 4 | ✓ |
 | 17 | TASK-017 FE public-availability-page | FE | 4 | |
 | 18 | TASK-021 BE ics-generation | BE | 5 | |
 | 19 | TASK-020 BE email-service | BE | 5 | |
