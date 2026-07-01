@@ -37,6 +37,18 @@ export interface TimeSlot {
   end: string
 }
 
+export interface AdminPublicInfo {
+  slug: string
+  name: string
+  timezone: string
+}
+
+export interface AvailabilityResponse {
+  date: string
+  adminTimezone: string
+  slots: TimeSlot[]
+}
+
 export interface Booking {
   id: number
   visitorName: string
