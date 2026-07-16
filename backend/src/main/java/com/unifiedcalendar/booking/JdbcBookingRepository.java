@@ -59,19 +59,19 @@ public class JdbcBookingRepository implements BookingRepository {
         if (key == null) {
             throw new RuntimeException("bookings insert did not return a generated key");
         }
-        return new Booking(
-                key.longValue(),
-                booking.adminId(),
-                booking.calendarEventId(),
-                booking.visitorName(),
-                booking.visitorEmail(),
-                booking.visitorPhone(),
-                booking.notes(),
-                booking.status(),
-                booking.cancelToken(),
-                booking.rescheduleToken(),
-                booking.createdAt()
-        );
+        // Fetch the persisted record to get the actual DB-generated created_at timestamp
+        Booking persisted = findByIdForRefresh(key.longValue());
+        if (persisted == null) {
+            throw new RuntimeException("Failed to retrieve inserted booking by id");
+        }
+        return persisted;
+    }
+
+    /** Internal method to fetch a booking by id (used after insert to get DB-generated timestamps). */
+    private Booking findByIdForRefresh(Long id) {
+        List<Booking> results = jdbc.query(
+                "SELECT * FROM bookings WHERE id = ?", ROW_MAPPER, id);
+        return results.stream().findFirst().orElse(null);
     }
 
     @Override

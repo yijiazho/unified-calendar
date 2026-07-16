@@ -62,82 +62,47 @@ public class BookingService {
     }
 
     /**
-     * Validates the slot twice (SQLite cache + live provider), creates the provider event and
-     * persists the booking atomically, then triggers confirmation emails asynchronously.
+     * Orchestrates booking creation: validates slot, creates provider event, then persists atomically.
+     * Does NOT hold DB connection during provider API calls (which can be slow).
+     * Returns fire-and-forget confirmation emails asynchronously.
      */
-    @Transactional
     public BookingResponse createBooking(CreateBookingRequest request) {
-        // Resolve admin
-        Admin admin = adminRepository.findBySlug(request.slug())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Admin not found"));
-
-        // Parse and validate slot times
+        // 1. Resolve and validate request (no DB connection held during network calls)
+        Admin admin = resolveAdmin(request.slug());
         Instant slotStart = parseInstant(request.slotStart(), "slotStart");
-        Instant slotEnd   = parseInstant(request.slotEnd(),   "slotEnd");
-        if (!slotEnd.equals(slotStart.plus(30, ChronoUnit.MINUTES))) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "slotEnd must be exactly 30 minutes after slotStart");
-        }
+        Instant slotEnd = parseInstant(request.slotEnd(), "slotEnd");
+        validateSlotDuration(slotStart, slotEnd);
 
-        // SQLite availability check
+        // 2. Check SQLite cache for conflicts
         if (!availabilityService.isSlotAvailable(admin.id(), slotStart, slotEnd)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "This time slot is no longer available.");
         }
 
-        // Find primary calendar account
-        CalendarAccount primary = calendarAccountRepository.findAllByAdminId(admin.id())
-                .stream()
-                .filter(CalendarAccount::isPrimary)
-                .findFirst()
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT,
-                        "This time slot is no longer available."));
+        // 3. Find primary calendar account
+        CalendarAccount primary = findPrimaryCalendar(admin.id());
 
-        // Refresh access token
+        // 4. Refresh token and perform live conflict check (outside transaction!)
         TokenRefreshResult refreshResult = refreshToken(primary);
-        calendarAccountRepository.save(refreshResult.updatedAccount());
-
-        // Live provider conflict check
         ProviderEventService providerService = findProviderService(primary.provider());
-        if (providerService.hasConflict(primary, refreshResult.accessToken(), slotStart, slotEnd)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "This time slot is no longer available.");
-        }
+        validateNoLiveConflict(primary, providerService, refreshResult.accessToken(), slotStart, slotEnd);
 
-        // Create event in primary provider calendar
-        String title       = "Meeting with " + request.visitorName();
+        // 5. Create provider event (outside transaction!)
+        String title = "Meeting with " + request.visitorName();
         String description = buildDescription(request);
         String providerEventId = providerService.createEvent(
                 primary, refreshResult.accessToken(), title, description, slotStart, slotEnd);
 
-        // Persist calendar_event and booking rows atomically; roll back provider event on DB failure
+        // 6. Persist to DB atomically; roll back on failure
         try {
-            CalendarEvent calEvent = new CalendarEvent(
-                    null, admin.id(), primary.id(), primary.provider(),
-                    providerEventId, title, slotStart, slotEnd, true, Instant.now(), Instant.now());
-            Long calEventId = calendarEventRepository.insertBookingEvent(calEvent);
-
-            Booking booking = new Booking(
-                    null, admin.id(), calEventId,
-                    request.visitorName(), request.visitorEmail(),
-                    request.visitorPhone(), request.notes(),
-                    "CONFIRMED",
-                    UUID.randomUUID().toString(),
-                    UUID.randomUUID().toString(),
-                    Instant.now());
-            Booking saved = bookingRepository.save(booking);
-
-            // Fire-and-forget email; runs after transaction commits in a separate thread
+            Booking saved = persistBooking(admin, primary, providerEventId, title, slotStart, slotEnd, request);
             emailService.sendBookingEmails(saved);
-
             return new BookingResponse(
                     saved.id(), saved.visitorName(), slotStart, slotEnd,
                     admin.slug(), saved.cancelToken(), saved.rescheduleToken());
-
         } catch (Exception dbEx) {
             log.error("DB insert failed after creating provider event {} for admin {}: {}",
                     providerEventId, admin.id(), dbEx.getMessage(), dbEx);
-            // Best-effort rollback of the provider event
             try {
                 providerService.deleteEvent(primary, refreshResult.accessToken(), providerEventId);
                 log.info("Rolled back provider event {} for admin {}", providerEventId, admin.id());
@@ -146,6 +111,59 @@ public class BookingService {
                         providerEventId, admin.id(), deleteEx.getMessage());
             }
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Booking creation failed");
+        }
+    }
+
+    /** Persist booking to DB within a transaction. Called after all external API calls complete. */
+    @Transactional
+    private Booking persistBooking(Admin admin, CalendarAccount primary, String providerEventId,
+                                   String title, Instant slotStart, Instant slotEnd, CreateBookingRequest request) {
+        // Refresh account tokens once more (minimal delay) to catch rotated refresh tokens
+        TokenRefreshResult latest = refreshToken(primary);
+        calendarAccountRepository.save(latest.updatedAccount());
+
+        CalendarEvent calEvent = new CalendarEvent(
+                null, admin.id(), primary.id(), primary.provider(),
+                providerEventId, title, slotStart, slotEnd, true, Instant.now(), Instant.now());
+        Long calEventId = calendarEventRepository.insertBookingEvent(calEvent);
+
+        Booking booking = new Booking(
+                null, admin.id(), calEventId,
+                request.visitorName(), request.visitorEmail(),
+                request.visitorPhone(), request.notes(),
+                "CONFIRMED",
+                UUID.randomUUID().toString(),
+                UUID.randomUUID().toString(),
+                Instant.now());
+        return bookingRepository.save(booking);
+    }
+
+    private Admin resolveAdmin(String slug) {
+        return adminRepository.findBySlug(slug)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Admin not found"));
+    }
+
+    private void validateSlotDuration(Instant slotStart, Instant slotEnd) {
+        if (!slotEnd.equals(slotStart.plus(30, ChronoUnit.MINUTES))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "slotEnd must be exactly 30 minutes after slotStart");
+        }
+    }
+
+    private CalendarAccount findPrimaryCalendar(Long adminId) {
+        return calendarAccountRepository.findAllByAdminId(adminId)
+                .stream()
+                .filter(CalendarAccount::isPrimary)
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT,
+                        "This time slot is no longer available."));
+    }
+
+    private void validateNoLiveConflict(CalendarAccount primary, ProviderEventService providerService,
+                                        String accessToken, Instant slotStart, Instant slotEnd) {
+        if (providerService.hasConflict(primary, accessToken, slotStart, slotEnd)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "This time slot is no longer available.");
         }
     }
 

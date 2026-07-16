@@ -134,7 +134,7 @@ class BookingServiceTest {
         when(calendarAccountRepository.findAllByAdminId(1L)).thenReturn(List.of(primaryAccount));
         when(googleTokenRefresher.refreshAccessToken(primaryAccount))
                 .thenReturn(new TokenRefreshResult("plain-token", primaryAccount));
-        when(calendarAccountRepository.save(any())).thenReturn(primaryAccount);
+        lenient().when(calendarAccountRepository.save(any())).thenReturn(primaryAccount);
         when(providerEventService.hasConflict(any(), anyString(), any(), any())).thenReturn(true);
 
         assertThatThrownBy(() -> bookingService.createBooking(validRequest))
