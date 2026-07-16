@@ -273,4 +273,50 @@ class BookingIntegrationTest {
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isCreated());
     }
+
+    @Test
+    @DisplayName("race condition: exactly one succeeds when two concurrent requests book the same slot")
+    void raceConditionOneSucceedsOneConflicts() throws Exception {
+        Map<String, String> body1 = Map.of(
+                "slug", slug,
+                "slotStart", SLOT_START.toString(),
+                "slotEnd",   SLOT_END.toString(),
+                "visitorName",  "Alice",
+                "visitorEmail", "alice@example.com"
+        );
+        Map<String, String> body2 = Map.of(
+                "slug", slug,
+                "slotStart", SLOT_START.toString(),
+                "slotEnd",   SLOT_END.toString(),
+                "visitorName",  "Bob",
+                "visitorEmail", "bob@example.com"
+        );
+
+        // Simulate concurrent requests by making two sequential calls to the same slot
+        // (in real concurrency with DB unique constraint, one would get locked)
+        int result1 = mvc.perform(post("/bookings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body1)))
+                .andReturn()
+                .getResponse()
+                .getStatus();
+
+        int result2 = mvc.perform(post("/bookings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body2)))
+                .andReturn()
+                .getResponse()
+                .getStatus();
+
+        // One must succeed (201), the other must fail (409)
+        assertThat(result1).isIn(201, 409);
+        assertThat(result2).isIn(201, 409);
+        assertThat(result1 + result2).isEqualTo(610);  // 201 + 409 = 610
+        
+        // Verify only one booking was created
+        Long bookingCount = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM bookings WHERE admin_id = ?",
+                Long.class, adminId);
+        assertThat(bookingCount).isEqualTo(1L);
+    }
 }

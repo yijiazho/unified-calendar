@@ -5,7 +5,6 @@ import com.unifiedcalendar.auth.AdminRepository;
 import com.unifiedcalendar.availability.AvailabilityService;
 import com.unifiedcalendar.calendar.CalendarAccount;
 import com.unifiedcalendar.calendar.CalendarAccountRepository;
-import com.unifiedcalendar.calendar.CalendarEventRepository;
 import com.unifiedcalendar.calendar.GoogleTokenRefresher;
 import com.unifiedcalendar.calendar.OutlookTokenRefresher;
 import com.unifiedcalendar.calendar.Provider;
@@ -18,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
@@ -38,13 +38,14 @@ class BookingServiceTest {
 
     @Mock private AdminRepository adminRepository;
     @Mock private CalendarAccountRepository calendarAccountRepository;
-    @Mock private CalendarEventRepository calendarEventRepository;
     @Mock private BookingRepository bookingRepository;
+    @Mock private SlotReservationRepository slotReservationRepository;
     @Mock private AvailabilityService availabilityService;
     @Mock private GoogleTokenRefresher googleTokenRefresher;
     @Mock private OutlookTokenRefresher outlookTokenRefresher;
     @Mock private ProviderEventService providerEventService;
     @Mock private EmailService emailService;
+    @Mock private BookingPersistenceService bookingPersistenceService;
 
     private BookingService bookingService;
 
@@ -58,9 +59,10 @@ class BookingServiceTest {
     @BeforeEach
     void setUp() {
         bookingService = new BookingService(
-                adminRepository, calendarAccountRepository, calendarEventRepository,
-                bookingRepository, availabilityService, googleTokenRefresher,
-                outlookTokenRefresher, List.of(providerEventService), emailService);
+                adminRepository, calendarAccountRepository, bookingRepository,
+                slotReservationRepository, availabilityService, googleTokenRefresher,
+                outlookTokenRefresher, List.of(providerEventService), emailService,
+                bookingPersistenceService);
 
         admin = new Admin(1L, "admin@example.com", "hash", "test-admin", "UTC", Instant.now(), Instant.now());
         primaryAccount = new CalendarAccount(
@@ -79,17 +81,21 @@ class BookingServiceTest {
     void createsBookingSuccessfully() {
         when(adminRepository.findBySlug("test-admin")).thenReturn(Optional.of(admin));
         when(availabilityService.isSlotAvailable(1L, SLOT_START, SLOT_END)).thenReturn(true);
+        SlotReservation reservation = new SlotReservation(1L, 1L, SLOT_START, SLOT_END, Instant.now());
+        when(slotReservationRepository.reserve(1L, SLOT_START, SLOT_END)).thenReturn(reservation);
         when(calendarAccountRepository.findAllByAdminId(1L)).thenReturn(List.of(primaryAccount));
         when(googleTokenRefresher.refreshAccessToken(primaryAccount))
                 .thenReturn(new TokenRefreshResult("plain-token", primaryAccount));
-        when(calendarAccountRepository.save(any())).thenReturn(primaryAccount);
         when(providerEventService.hasConflict(any(), anyString(), any(), any())).thenReturn(false);
         when(providerEventService.createEvent(any(), anyString(), anyString(), anyString(), any(), any()))
                 .thenReturn("google-event-id-123");
-        when(calendarEventRepository.insertBookingEvent(any())).thenReturn(99L);
+        
         Booking savedBooking = new Booking(42L, 1L, 99L, "John Doe", "john@example.com",
                 "+1-555-0100", "First meeting", "CONFIRMED", "cancel-uuid", "reschedule-uuid", Instant.now());
-        when(bookingRepository.save(any())).thenReturn(savedBooking);
+        when(bookingPersistenceService.persistBooking(
+                eq(admin), eq(primaryAccount), eq("google-event-id-123"), anyString(),
+                eq(SLOT_START), eq(SLOT_END), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(savedBooking);
 
         BookingResponse response = bookingService.createBooking(validRequest);
 
@@ -101,6 +107,7 @@ class BookingServiceTest {
         assertThat(response.cancelToken()).isEqualTo("cancel-uuid");
         assertThat(response.rescheduleToken()).isEqualTo("reschedule-uuid");
 
+        verify(slotReservationRepository).delete(1L);
         verify(emailService).sendBookingEmails(savedBooking);
     }
 
@@ -127,14 +134,29 @@ class BookingServiceTest {
     }
 
     @Test
+    @DisplayName("returns 409 when slot is already reserved")
+    void returns409WhenSlotAlreadyReserved() {
+        when(adminRepository.findBySlug("test-admin")).thenReturn(Optional.of(admin));
+        when(availabilityService.isSlotAvailable(1L, SLOT_START, SLOT_END)).thenReturn(true);
+        when(slotReservationRepository.reserve(1L, SLOT_START, SLOT_END))
+                .thenThrow(new DataIntegrityViolationException("Unique constraint violation"));
+
+        assertThatThrownBy(() -> bookingService.createBooking(validRequest))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(e -> ((ResponseStatusException) e).getStatusCode().value())
+                .isEqualTo(409);
+    }
+
+    @Test
     @DisplayName("returns 409 when live provider check finds a conflict the cache missed")
     void returns409WhenLiveProviderConflictFound() {
         when(adminRepository.findBySlug("test-admin")).thenReturn(Optional.of(admin));
         when(availabilityService.isSlotAvailable(1L, SLOT_START, SLOT_END)).thenReturn(true);
+        SlotReservation reservation = new SlotReservation(1L, 1L, SLOT_START, SLOT_END, Instant.now());
+        when(slotReservationRepository.reserve(1L, SLOT_START, SLOT_END)).thenReturn(reservation);
         when(calendarAccountRepository.findAllByAdminId(1L)).thenReturn(List.of(primaryAccount));
         when(googleTokenRefresher.refreshAccessToken(primaryAccount))
                 .thenReturn(new TokenRefreshResult("plain-token", primaryAccount));
-        lenient().when(calendarAccountRepository.save(any())).thenReturn(primaryAccount);
         when(providerEventService.hasConflict(any(), anyString(), any(), any())).thenReturn(true);
 
         assertThatThrownBy(() -> bookingService.createBooking(validRequest))
@@ -143,6 +165,7 @@ class BookingServiceTest {
                 .isEqualTo(409);
 
         verify(providerEventService, never()).createEvent(any(), anyString(), anyString(), anyString(), any(), any());
+        verify(slotReservationRepository).delete(1L);
     }
 
     @Test
@@ -161,18 +184,20 @@ class BookingServiceTest {
     }
 
     @Test
-    @DisplayName("rolls back provider event and returns 500 when DB insert fails")
-    void rollsBackProviderEventOnDbFailure() {
+    @DisplayName("rolls back provider event and reservation on DB insert failure")
+    void rollsBackProviderEventAndReservationOnDbFailure() {
         when(adminRepository.findBySlug("test-admin")).thenReturn(Optional.of(admin));
         when(availabilityService.isSlotAvailable(1L, SLOT_START, SLOT_END)).thenReturn(true);
+        SlotReservation reservation = new SlotReservation(1L, 1L, SLOT_START, SLOT_END, Instant.now());
+        when(slotReservationRepository.reserve(1L, SLOT_START, SLOT_END)).thenReturn(reservation);
         when(calendarAccountRepository.findAllByAdminId(1L)).thenReturn(List.of(primaryAccount));
         when(googleTokenRefresher.refreshAccessToken(primaryAccount))
                 .thenReturn(new TokenRefreshResult("plain-token", primaryAccount));
-        when(calendarAccountRepository.save(any())).thenReturn(primaryAccount);
         when(providerEventService.hasConflict(any(), anyString(), any(), any())).thenReturn(false);
         when(providerEventService.createEvent(any(), anyString(), anyString(), anyString(), any(), any()))
                 .thenReturn("google-event-id-to-rollback");
-        when(calendarEventRepository.insertBookingEvent(any()))
+        when(bookingPersistenceService.persistBooking(
+                any(), any(), anyString(), anyString(), any(), any(), anyString(), anyString(), anyString(), anyString()))
                 .thenThrow(new RuntimeException("DB connection lost"));
 
         assertThatThrownBy(() -> bookingService.createBooking(validRequest))
@@ -181,6 +206,7 @@ class BookingServiceTest {
                 .isEqualTo(500);
 
         verify(providerEventService).deleteEvent(eq(primaryAccount), eq("plain-token"), eq("google-event-id-to-rollback"));
+        verify(slotReservationRepository).delete(1L);
     }
 
     @Test

@@ -5,8 +5,6 @@ import com.unifiedcalendar.auth.AdminRepository;
 import com.unifiedcalendar.availability.AvailabilityService;
 import com.unifiedcalendar.calendar.CalendarAccount;
 import com.unifiedcalendar.calendar.CalendarAccountRepository;
-import com.unifiedcalendar.calendar.CalendarEvent;
-import com.unifiedcalendar.calendar.CalendarEventRepository;
 import com.unifiedcalendar.calendar.GoogleTokenRefresher;
 import com.unifiedcalendar.calendar.OutlookTokenRefresher;
 import com.unifiedcalendar.calendar.Provider;
@@ -15,15 +13,14 @@ import com.unifiedcalendar.calendar.TokenRefreshResult;
 import com.unifiedcalendar.email.EmailService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 public class BookingService {
@@ -32,37 +29,40 @@ public class BookingService {
 
     private final AdminRepository adminRepository;
     private final CalendarAccountRepository calendarAccountRepository;
-    private final CalendarEventRepository calendarEventRepository;
     private final BookingRepository bookingRepository;
+    private final SlotReservationRepository slotReservationRepository;
     private final AvailabilityService availabilityService;
     private final GoogleTokenRefresher googleTokenRefresher;
     private final OutlookTokenRefresher outlookTokenRefresher;
     private final List<ProviderEventService> providerEventServices;
     private final EmailService emailService;
+    private final BookingPersistenceService bookingPersistenceService;
 
     public BookingService(
             AdminRepository adminRepository,
             CalendarAccountRepository calendarAccountRepository,
-            CalendarEventRepository calendarEventRepository,
             BookingRepository bookingRepository,
+            SlotReservationRepository slotReservationRepository,
             AvailabilityService availabilityService,
             GoogleTokenRefresher googleTokenRefresher,
             OutlookTokenRefresher outlookTokenRefresher,
             List<ProviderEventService> providerEventServices,
-            EmailService emailService) {
+            EmailService emailService,
+            BookingPersistenceService bookingPersistenceService) {
         this.adminRepository = adminRepository;
         this.calendarAccountRepository = calendarAccountRepository;
-        this.calendarEventRepository = calendarEventRepository;
         this.bookingRepository = bookingRepository;
+        this.slotReservationRepository = slotReservationRepository;
         this.availabilityService = availabilityService;
         this.googleTokenRefresher = googleTokenRefresher;
         this.outlookTokenRefresher = outlookTokenRefresher;
         this.providerEventServices = providerEventServices;
         this.emailService = emailService;
+        this.bookingPersistenceService = bookingPersistenceService;
     }
 
     /**
-     * Orchestrates booking creation: validates slot, creates provider event, then persists atomically.
+     * Orchestrates booking creation: validates slot, reserves atomically, creates provider event, then persists.
      * Does NOT hold DB connection during provider API calls (which can be slow).
      * Returns fire-and-forget confirmation emails asynchronously.
      */
@@ -79,63 +79,91 @@ public class BookingService {
                     "This time slot is no longer available.");
         }
 
-        // 3. Find primary calendar account
+        // 3. Atomically reserve the slot (fails with 409 if already reserved)
+        SlotReservation reservation;
+        try {
+            reservation = slotReservationRepository.reserve(admin.id(), slotStart, slotEnd);
+        } catch (DataIntegrityViolationException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "This time slot is no longer available.");
+        }
+
+        // 4. Find primary calendar account
         CalendarAccount primary = findPrimaryCalendar(admin.id());
 
-        // 4. Refresh token and perform live conflict check (outside transaction!)
-        TokenRefreshResult refreshResult = refreshToken(primary);
-        ProviderEventService providerService = findProviderService(primary.provider());
-        validateNoLiveConflict(primary, providerService, refreshResult.accessToken(), slotStart, slotEnd);
-
-        // 5. Create provider event (outside transaction!)
-        String title = "Meeting with " + request.visitorName();
-        String description = buildDescription(request);
-        String providerEventId = providerService.createEvent(
-                primary, refreshResult.accessToken(), title, description, slotStart, slotEnd);
-
-        // 6. Persist to DB atomically; roll back on failure
+        // Track whether reservation has been released; always cleanup on exit if not
+        boolean reservationReleased = false;
         try {
-            Booking saved = persistBooking(admin, primary, providerEventId, title, slotStart, slotEnd, request);
-            emailService.sendBookingEmails(saved);
-            return new BookingResponse(
-                    saved.id(), saved.visitorName(), slotStart, slotEnd,
-                    admin.slug(), saved.cancelToken(), saved.rescheduleToken());
-        } catch (Exception dbEx) {
-            log.error("DB insert failed after creating provider event {} for admin {}: {}",
-                    providerEventId, admin.id(), dbEx.getMessage(), dbEx);
+            // 5. Refresh token once and perform live conflict check (outside transaction!)
+            TokenRefreshResult refreshResult = refreshToken(primary);
+            ProviderEventService providerService = findProviderService(primary.provider());
+            validateNoLiveConflict(primary, providerService, refreshResult.accessToken(), slotStart, slotEnd);
+
+            // 6. Create provider event (outside transaction!)
+            String title = "Meeting with " + request.visitorName();
+            String description = buildDescription(request);
+            String providerEventId;
             try {
-                providerService.deleteEvent(primary, refreshResult.accessToken(), providerEventId);
-                log.info("Rolled back provider event {} for admin {}", providerEventId, admin.id());
-            } catch (Exception deleteEx) {
-                log.error("Orphaned provider event {} for admin {} — manual cleanup required: {}",
-                        providerEventId, admin.id(), deleteEx.getMessage());
+                providerEventId = providerService.createEvent(
+                        primary, refreshResult.accessToken(), title, description, slotStart, slotEnd);
+            } catch (Exception eventCreationEx) {
+                log.error("Provider event creation failed for admin {}: {}", admin.id(), eventCreationEx.getMessage());
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Booking creation failed");
             }
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Booking creation failed");
+
+            // 7. Persist to DB atomically; roll back provider event on failure
+            try {
+                // Use the refreshed account from step 5 to avoid a second (potentially stale) refresh
+                CalendarAccount accountWithRefreshedToken = refreshResult.updatedAccount();
+                Booking saved = bookingPersistenceService.persistBooking(
+                        admin, accountWithRefreshedToken, providerEventId, title,
+                        slotStart, slotEnd,
+                        request.visitorName(), request.visitorEmail(), request.visitorPhone(), request.notes());
+                
+                // Slot reservation is now implicit in the booking; delete the reservation row
+                slotReservationRepository.delete(reservation.id());
+                reservationReleased = true;
+                
+                // Step 8: Schedule confirmation emails separately (outside DB transaction)
+                // If scheduling fails, we log but do NOT rollback the booking
+                scheduleConfirmationEmails(saved);
+                
+                return new BookingResponse(
+                        saved.id(), saved.visitorName(), slotStart, slotEnd,
+                        admin.slug(), saved.cancelToken(), saved.rescheduleToken());
+            } catch (Exception dbEx) {
+                log.error("DB insert failed after creating provider event {} for admin {}: {}",
+                        providerEventId, admin.id(), dbEx.getMessage(), dbEx);
+                try {
+                    // Rollback: delete provider event since DB write failed
+                    providerService.deleteEvent(primary, refreshResult.accessToken(), providerEventId);
+                    log.info("Rolled back provider event {} for admin {}", providerEventId, admin.id());
+                } catch (Exception deleteEx) {
+                    log.error("Orphaned provider event {} for admin {} — manual cleanup required: {}",
+                            providerEventId, admin.id(), deleteEx.getMessage());
+                }
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Booking creation failed");
+            }
+        } finally {
+            // Release reservation if not already released (on any failure or non-standard exit)
+            if (!reservationReleased) {
+                slotReservationRepository.delete(reservation.id());
+            }
         }
     }
 
-    /** Persist booking to DB within a transaction. Called after all external API calls complete. */
-    @Transactional
-    private Booking persistBooking(Admin admin, CalendarAccount primary, String providerEventId,
-                                   String title, Instant slotStart, Instant slotEnd, CreateBookingRequest request) {
-        // Refresh account tokens once more (minimal delay) to catch rotated refresh tokens
-        TokenRefreshResult latest = refreshToken(primary);
-        calendarAccountRepository.save(latest.updatedAccount());
-
-        CalendarEvent calEvent = new CalendarEvent(
-                null, admin.id(), primary.id(), primary.provider(),
-                providerEventId, title, slotStart, slotEnd, true, Instant.now(), Instant.now());
-        Long calEventId = calendarEventRepository.insertBookingEvent(calEvent);
-
-        Booking booking = new Booking(
-                null, admin.id(), calEventId,
-                request.visitorName(), request.visitorEmail(),
-                request.visitorPhone(), request.notes(),
-                "CONFIRMED",
-                UUID.randomUUID().toString(),
-                UUID.randomUUID().toString(),
-                Instant.now());
-        return bookingRepository.save(booking);
+    /**
+     * Schedules confirmation emails asynchronously.
+     * Logs failures without affecting the confirmed booking state.
+     */
+    private void scheduleConfirmationEmails(Booking booking) {
+        try {
+            emailService.sendBookingEmails(booking);
+        } catch (Exception emailEx) {
+            log.warn("Failed to schedule confirmation emails for booking {}: {}", 
+                    booking.id(), emailEx.getMessage());
+            // Do NOT re-throw; booking is already confirmed in the database
+        }
     }
 
     private Admin resolveAdmin(String slug) {
