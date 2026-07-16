@@ -1,12 +1,29 @@
+import client from './client'
 import publicClient from './publicClient'
 import type { Booking } from '../types'
 
-export const createBooking = (slug: string, data: {
+export interface CreateBookingRequest {
+  slug: string
+  slotStart: string
+  slotEnd: string
   visitorName: string
   visitorEmail: string
-  start: string
-  end: string
-}) => publicClient.post<Booking>(`/bookings/${slug}`, data)
+  visitorPhone?: string
+  notes?: string
+}
+
+export interface BookingConfirmation {
+  bookingId: number
+  visitorName: string
+  slotStart: string
+  slotEnd: string
+  adminName: string
+  cancelToken: string
+  rescheduleToken: string
+}
+
+export const createBooking = (data: CreateBookingRequest) =>
+  client.post<BookingConfirmation>('/bookings', data)
 
 export const cancelBooking = (token: string) => publicClient.post(`/bookings/cancel/${token}`)
 
