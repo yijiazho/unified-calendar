@@ -23,8 +23,8 @@ Each task lists what must be done before it can start.
 | TASK-015 BE availability-engine | 004, 010, 012 | ✓ |
 | TASK-016 BE public-api | 004, 005, 015 | ✓ |
 | TASK-017 FE public-availability-page | 003, 016 | ✓ |
-| TASK-018 BE booking | 004, 007, 008, 015, 020 | |
-| TASK-019 FE booking-form | 003, 017, 018 | |
+| TASK-018 BE booking | 004, 007, 008, 015, 020 | ✓ |
+| TASK-019 FE booking-form | 003, 017, 018 | ✓ |
 | TASK-020 BE email-service | 002, 021 | |
 | TASK-021 BE ics-generation | 004 | |
 | TASK-022 BE cancellation | 004, 018, 020 | |
@@ -69,13 +69,13 @@ Wave 7  ────────────────────────
 
 Wave 8  ──────────────────────────────────────────────────────────────────
   ✓ 014 FE unified-calendar-view ✓ 016 BE public-api
-  018 BE booking
+  ✓ 018 BE booking
 
 Wave 9  ──────────────────────────────────────────────────────────────────
   ✓ 017 FE public-availability     022 BE cancellation
 
 Wave 10 ──────────────────────────────────────────────────────────────────
-  019 FE booking-form            024 BE rescheduling
+  ✓ 019 FE booking-form            024 BE rescheduling
 
 Wave 11 ──────────────────────────────────────────────────────────────────
   023 FE cancellation            025 FE rescheduling
