@@ -15,4 +15,7 @@ public interface CalendarEventRepository {
 
     /** Returns events with their account email for the unified calendar view; uses an overlap query. */
     List<CalendarEventResponse> findWithEmailByAdminIdAndTimeRange(Long adminId, Instant start, Instant end);
+
+    /** Inserts a booking-created calendar event with is_booking_event=true and returns its generated id. */
+    Long insertBookingEvent(CalendarEvent event);
 }

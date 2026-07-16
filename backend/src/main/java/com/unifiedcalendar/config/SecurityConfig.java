@@ -43,6 +43,7 @@ public class SecurityConfig {
                     "/auth/**",
                     "/s/**",
                     "/availability/**",
+                    "/bookings",
                     "/bookings/*/cancel",
                     "/bookings/*/reschedule",
                     "/actuator/health",

@@ -1,15 +1,17 @@
 package com.unifiedcalendar.calendar;
 
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.stereotype.Repository;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.stereotype.Repository;
 
 @Repository
 public class JdbcCalendarEventRepository implements CalendarEventRepository {
@@ -128,5 +130,34 @@ public class JdbcCalendarEventRepository implements CalendarEventRepository {
             ),
             adminId, end.toString(), start.toString()
         );
+    }
+
+    /** Inserts a booking-sourced event with is_booking_event=true and returns the generated primary key. */
+    @Override
+    public Long insertBookingEvent(CalendarEvent event) {
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+        jdbc.update(con -> {
+            var ps = con.prepareStatement(
+                "INSERT INTO calendar_events " +
+                "(admin_id, calendar_account_id, provider, provider_event_id, title, " +
+                " start_time_utc, end_time_utc, is_booking_event, provider_updated_at, last_synced_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
+                new String[]{"id"});
+            ps.setLong(1, event.adminId());
+            ps.setLong(2, event.calendarAccountId());
+            ps.setString(3, event.provider().name());
+            ps.setString(4, event.providerEventId());
+            ps.setString(5, event.title());
+            ps.setString(6, event.startTimeUtc().toString());
+            ps.setString(7, event.endTimeUtc().toString());
+            ps.setString(8, event.providerUpdatedAt() != null ? event.providerUpdatedAt().toString() : null);
+            ps.setString(9, Instant.now().toString());
+            return ps;
+        }, keyHolder);
+        Number key = keyHolder.getKey();
+        if (key == null) {
+            throw new RuntimeException("calendar_events insert did not return a generated key");
+        }
+        return key.longValue();
     }
 }
