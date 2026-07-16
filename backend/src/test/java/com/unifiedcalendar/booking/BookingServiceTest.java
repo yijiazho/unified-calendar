@@ -125,6 +125,7 @@ class BookingServiceTest {
     @DisplayName("returns 409 when SQLite availability check fails")
     void returns409WhenSlotUnavailableInCache() {
         when(adminRepository.findBySlug("test-admin")).thenReturn(Optional.of(admin));
+        when(calendarAccountRepository.findAllByAdminId(1L)).thenReturn(List.of(primaryAccount));
         when(availabilityService.isSlotAvailable(1L, SLOT_START, SLOT_END)).thenReturn(false);
 
         assertThatThrownBy(() -> bookingService.createBooking(validRequest))
@@ -137,6 +138,7 @@ class BookingServiceTest {
     @DisplayName("returns 409 when slot is already reserved")
     void returns409WhenSlotAlreadyReserved() {
         when(adminRepository.findBySlug("test-admin")).thenReturn(Optional.of(admin));
+        when(calendarAccountRepository.findAllByAdminId(1L)).thenReturn(List.of(primaryAccount));
         when(availabilityService.isSlotAvailable(1L, SLOT_START, SLOT_END)).thenReturn(true);
         when(slotReservationRepository.reserve(1L, SLOT_START, SLOT_END))
                 .thenThrow(new DataIntegrityViolationException("Unique constraint violation"));
@@ -145,6 +147,22 @@ class BookingServiceTest {
                 .isInstanceOf(ResponseStatusException.class)
                 .extracting(e -> ((ResponseStatusException) e).getStatusCode().value())
                 .isEqualTo(409);
+    }
+
+    @Test
+    @DisplayName("returns a clear 409 without reserving when no primary calendar is configured")
+    void returns409WithoutReservingWhenPrimaryCalendarMissing() {
+        when(adminRepository.findBySlug("test-admin")).thenReturn(Optional.of(admin));
+        when(calendarAccountRepository.findAllByAdminId(1L)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> bookingService.createBooking(validRequest))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("No primary calendar is configured")
+                .extracting(e -> ((ResponseStatusException) e).getStatusCode().value())
+                .isEqualTo(409);
+
+        verifyNoInteractions(slotReservationRepository);
+        verifyNoInteractions(availabilityService);
     }
 
     @Test

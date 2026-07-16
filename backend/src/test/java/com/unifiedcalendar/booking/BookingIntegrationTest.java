@@ -193,6 +193,32 @@ class BookingIntegrationTest {
     }
 
     @Test
+    @DisplayName("missing primary calendar returns a clear 409 and does not reserve the slot")
+    void missingPrimaryCalendarDoesNotReserveSlot() throws Exception {
+        jdbc.update("UPDATE calendar_accounts SET is_primary = 0 WHERE admin_id = ?", adminId);
+
+        Map<String, String> body = Map.of(
+                "slug", slug,
+                "slotStart", SLOT_START.toString(),
+                "slotEnd", SLOT_END.toString(),
+                "visitorName", "John Doe",
+                "visitorEmail", "john@example.com"
+        );
+
+        mvc.perform(post("/bookings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value(
+                        "No primary calendar is configured. The calendar owner must select one before bookings can be created."));
+
+        Long reservationCount = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM slot_reservations WHERE admin_id = ? AND slot_start = ? AND slot_end = ?",
+                Long.class, adminId, SLOT_START.toString(), SLOT_END.toString());
+        assertThat(reservationCount).isZero();
+    }
+
+    @Test
     @DisplayName("returns 409 when slot is already booked (SQLite cache check)")
     void returns409ForAlreadyBookedSlot() throws Exception {
         // Insert a blocking calendar_event covering the slot
