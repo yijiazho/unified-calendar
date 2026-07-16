@@ -164,10 +164,12 @@ public class BookingService {
 
     private Instant parseInstant(String value, String fieldName) {
         try {
+            // Accepts any ISO-8601 timestamp (with or without offset); Instant.parse() converts to UTC.
+            // Examples: "2024-03-15T14:00:00Z", "2024-03-15T14:00:00+02:00", "2024-03-15T14:00:00"
             return Instant.parse(value);
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    fieldName + " must be a valid ISO-8601 UTC timestamp");
+                    fieldName + " must be a valid ISO-8601 timestamp (e.g., 2024-03-15T14:00:00Z or 2024-03-15T14:00:00+02:00)");
         }
     }
 
