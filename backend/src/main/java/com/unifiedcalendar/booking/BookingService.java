@@ -73,13 +73,17 @@ public class BookingService {
         Instant slotEnd = parseInstant(request.slotEnd(), "slotEnd");
         validateSlotDuration(slotStart, slotEnd);
 
-        // 2. Check SQLite cache for conflicts
+        // 2. Resolve the primary calendar before reserving anything. A missing primary
+        // is an admin configuration problem and must never leave an orphan reservation.
+        CalendarAccount primary = findPrimaryCalendar(admin.id());
+
+        // 3. Check SQLite cache for conflicts
         if (!availabilityService.isSlotAvailable(admin.id(), slotStart, slotEnd)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "This time slot is no longer available.");
         }
 
-        // 3. Atomically reserve the slot (fails with 409 if already reserved)
+        // 4. Atomically reserve the slot (fails with 409 if already reserved)
         SlotReservation reservation;
         try {
             reservation = slotReservationRepository.reserve(admin.id(), slotStart, slotEnd);
@@ -87,9 +91,6 @@ public class BookingService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "This time slot is no longer available.");
         }
-
-        // 4. Find primary calendar account
-        CalendarAccount primary = findPrimaryCalendar(admin.id());
 
         // Track whether reservation has been released; always cleanup on exit if not
         boolean reservationReleased = false;
@@ -184,7 +185,7 @@ public class BookingService {
                 .filter(CalendarAccount::isPrimary)
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT,
-                        "This time slot is no longer available."));
+                        "No primary calendar is configured. The calendar owner must select one before bookings can be created."));
     }
 
     private void validateNoLiveConflict(CalendarAccount primary, ProviderEventService providerService,
