@@ -22,4 +22,10 @@ public interface CalendarEventRepository {
 
     /** Inserts a booking-created calendar event with is_booking_event=true and returns its generated id. */
     Long insertBookingEvent(CalendarEvent event);
+
+    /** Loads one cached event by id, constrained to its owning admin. */
+    Optional<CalendarEvent> findById(Long id, Long adminId);
+
+    /** Deletes one cached event by id, constrained to its owning admin. */
+    void deleteById(Long id, Long adminId);
 }

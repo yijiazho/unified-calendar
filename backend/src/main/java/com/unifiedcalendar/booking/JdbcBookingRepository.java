@@ -19,19 +19,22 @@ public class JdbcBookingRepository implements BookingRepository {
         this.jdbc = jdbc;
     }
 
-    private static final RowMapper<Booking> ROW_MAPPER = (rs, rowNum) -> new Booking(
-            rs.getLong("id"),
-            rs.getLong("admin_id"),
-            rs.getObject("calendar_event_id", Long.class),
-            rs.getString("visitor_name"),
-            rs.getString("visitor_email"),
-            rs.getString("visitor_phone"),
-            rs.getString("notes"),
-            rs.getString("status"),
-            rs.getString("cancel_token"),
-            rs.getString("reschedule_token"),
-            Instant.parse(rs.getString("created_at"))
-    );
+    private static final RowMapper<Booking> ROW_MAPPER = (rs, rowNum) -> {
+        Number calendarEventId = (Number) rs.getObject("calendar_event_id");
+        return new Booking(
+                rs.getLong("id"),
+                rs.getLong("admin_id"),
+                calendarEventId != null ? calendarEventId.longValue() : null,
+                rs.getString("visitor_name"),
+                rs.getString("visitor_email"),
+                rs.getString("visitor_phone"),
+                rs.getString("notes"),
+                rs.getString("status"),
+                rs.getString("cancel_token"),
+                rs.getString("reschedule_token"),
+                Instant.parse(rs.getString("created_at"))
+        );
+    };
 
     /** Inserts a new booking and returns the persisted record with the generated id. */
     @Override
@@ -91,5 +94,12 @@ public class JdbcBookingRepository implements BookingRepository {
     @Override
     public void updateStatus(Long id, String status) {
         jdbc.update("UPDATE bookings SET status = ? WHERE id = ?", status, id);
+    }
+
+    @Override
+    public boolean updateStatusIfCurrent(Long id, String expectedStatus, String newStatus) {
+        return jdbc.update(
+                "UPDATE bookings SET status = ? WHERE id = ? AND status = ?",
+                newStatus, id, expectedStatus) == 1;
     }
 }
