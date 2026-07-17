@@ -109,15 +109,34 @@ public class CancellationService {
     }
 
     private void deleteProviderEventBestEffort(CalendarAccount account, CalendarEvent event) {
+        TokenRefreshResult refresh;
         try {
-            TokenRefreshResult refresh = refreshToken(account);
+            refresh = refreshToken(account);
+        } catch (Exception ex) {
+            logProviderDeletionFailure(event, ex);
+            return;
+        }
+
+        try {
+            calendarAccountRepository.save(refresh.updatedAccount());
+        } catch (Exception ex) {
+            log.error("Refreshed credentials for calendar account {} could not be persisted; "
+                            + "continuing with provider deletion: {}",
+                    account.id(), ex.getMessage(), ex);
+        }
+
+        try {
             findProviderService(account.provider()).deleteEvent(
                     refresh.updatedAccount(), refresh.accessToken(), event.providerEventId());
         } catch (Exception ex) {
-            log.error("Provider event {} could not be deleted for booking calendar event {}; "
-                            + "continuing with local cancellation: {}",
-                    event.providerEventId(), event.id(), ex.getMessage(), ex);
+            logProviderDeletionFailure(event, ex);
         }
+    }
+
+    private void logProviderDeletionFailure(CalendarEvent event, Exception ex) {
+        log.error("Provider event {} could not be deleted for booking calendar event {}; "
+                        + "continuing with local cancellation: {}",
+                event.providerEventId(), event.id(), ex.getMessage(), ex);
     }
 
     private void scheduleCancellationEmails(Booking booking, Admin admin, Instant cancelledStart) {
