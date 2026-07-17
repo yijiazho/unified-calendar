@@ -21,7 +21,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 @Service
-@Async
+@Async("emailTaskExecutor")
 public class EmailService {
 
     private static final Logger log = LoggerFactory.getLogger(EmailService.class);

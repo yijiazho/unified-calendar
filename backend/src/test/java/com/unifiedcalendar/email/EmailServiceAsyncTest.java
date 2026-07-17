@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
 import java.time.Duration;
@@ -68,6 +69,15 @@ class EmailServiceAsyncTest {
     @Configuration
     @EnableAsync
     static class Config {
+        @Bean(name = "emailTaskExecutor")
+        ThreadPoolTaskExecutor emailTaskExecutor() {
+            ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+            executor.setCorePoolSize(1);
+            executor.setMaxPoolSize(1);
+            executor.setQueueCapacity(1);
+            return executor;
+        }
+
         @Bean ResendClient resendClient() {
             return mock(ResendClient.class);
         }
