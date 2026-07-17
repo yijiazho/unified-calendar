@@ -14,4 +14,10 @@ public interface BookingRepository {
 
     /** Updates a booking status without modifying other fields. */
     void updateStatus(Long id, String status);
+
+    /**
+     * Changes the status only when it still has the expected value.
+     * Returns true when the row was updated, allowing callers to reject concurrent duplicate actions.
+     */
+    boolean updateStatusIfCurrent(Long id, String expectedStatus, String newStatus);
 }

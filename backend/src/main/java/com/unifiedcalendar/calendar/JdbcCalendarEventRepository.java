@@ -168,4 +168,16 @@ public class JdbcCalendarEventRepository implements CalendarEventRepository {
         }
         return key.longValue();
     }
+
+    @Override
+    public Optional<CalendarEvent> findById(Long id, Long adminId) {
+        return jdbc.query(
+                "SELECT * FROM calendar_events WHERE id = ? AND admin_id = ?",
+                ROW_MAPPER, id, adminId).stream().findFirst();
+    }
+
+    @Override
+    public void deleteById(Long id, Long adminId) {
+        jdbc.update("DELETE FROM calendar_events WHERE id = ? AND admin_id = ?", id, adminId);
+    }
 }
