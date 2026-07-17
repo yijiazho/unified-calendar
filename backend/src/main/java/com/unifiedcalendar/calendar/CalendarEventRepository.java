@@ -2,6 +2,7 @@ package com.unifiedcalendar.calendar;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 public interface CalendarEventRepository {
     /** Inserts or updates a normalized provider event in the local cache. */
@@ -12,6 +13,9 @@ public interface CalendarEventRepository {
 
     /** Returns cached events within a UTC time range for availability computation. */
     List<CalendarEvent> findByAdminIdAndTimeRange(Long adminId, Instant from, Instant to);
+
+    /** Finds a normalized event by its database id. */
+    Optional<CalendarEvent> findById(Long id);
 
     /** Returns events with their account email for the unified calendar view; uses an overlap query. */
     List<CalendarEventResponse> findWithEmailByAdminIdAndTimeRange(Long adminId, Instant start, Instant end);

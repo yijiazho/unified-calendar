@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -106,6 +107,13 @@ public class JdbcCalendarEventRepository implements CalendarEventRepository {
             "ORDER BY start_time_utc",
             ROW_MAPPER, adminId, to.toString(), from.toString()
         );
+    }
+
+    @Override
+    public Optional<CalendarEvent> findById(Long id) {
+        return jdbc.query("SELECT * FROM calendar_events WHERE id = ?", ROW_MAPPER, id)
+                .stream()
+                .findFirst();
     }
 
     @Override

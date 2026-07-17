@@ -51,7 +51,8 @@ Response 410: { "error": "This appointment is in the past and cannot be cancelle
 5. Delete or mark the calendar_events row:
    - For MVP: delete the row (the next sync cycle will not recreate it since it's gone from provider)
 6. Update booking.status = 'CANCELLED'
-7. Trigger cancellation emails async: EmailService.sendCancellationEmails(booking, admin)
+7. Trigger cancellation emails async, passing the slot time captured before deleting the
+   `calendar_events` row: `EmailService.sendCancellationEmails(booking, admin, slotStart)`
 8. Return 200
 ```
 
