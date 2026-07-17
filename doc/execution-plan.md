@@ -25,7 +25,7 @@ Each task lists what must be done before it can start.
 | TASK-017 FE public-availability-page | 003, 016 | ✓ |
 | TASK-018 BE booking | 004, 007, 008, 015, 020 | ✓ |
 | TASK-019 FE booking-form | 003, 017, 018 | ✓ |
-| TASK-020 BE email-service | 002, 021 | |
+| TASK-020 BE email-service | 002, 021 | ✓ |
 | TASK-021 BE ics-generation | 004 | |
 | TASK-022 BE cancellation | 004, 018, 020 | |
 | TASK-023 FE cancellation | 003, 022 | |
@@ -59,7 +59,7 @@ Wave 4  ────────────────────────
 
 Wave 5  ──────────────────────────────────────────────────────────────────
   ✓ 008 BE outlook-oauth      ✓ 011 FE working-hours
-    020 BE email-service
+  ✓ 020 BE email-service
 
 Wave 6  ──────────────────────────────────────────────────────────────────
   ✓ 009 FE calendar-connect   ✓ 012 BE calendar-sync
@@ -166,7 +166,7 @@ shows no slots.
 
 ```
 18. TASK-021  BE ICS generation
-19. TASK-020  BE email service
+19. ✓ TASK-020  BE email service
 20. TASK-018  BE booking API
 ```
 
@@ -225,7 +225,7 @@ in the admin's calendar → both receive updated emails with new ICS.
 | 16 | TASK-016 BE public-api | BE | 4 | ✓ |
 | 17 | TASK-017 FE public-availability-page | FE | 4 | ✓ |
 | 18 | TASK-021 BE ics-generation | BE | 5 | |
-| 19 | TASK-020 BE email-service | BE | 5 | |
+| 19 | TASK-020 BE email-service | BE | 5 | ✓ |
 | 20 | TASK-018 BE booking | BE | 5 | |
 | 21 | TASK-019 FE booking-form | FE | 6 | |
 | 22 | TASK-022 BE cancellation | BE | 7 | |

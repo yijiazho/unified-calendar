@@ -108,7 +108,7 @@ class BookingServiceTest {
         assertThat(response.rescheduleToken()).isEqualTo("reschedule-uuid");
 
         verify(slotReservationRepository).delete(1L);
-        verify(emailService).sendBookingEmails(savedBooking);
+        verify(emailService).sendBookingEmails(savedBooking, admin);
     }
 
     @Test

@@ -1,4 +1,3 @@
-import client from './client'
 import publicClient from './publicClient'
 import type { Booking } from '../types'
 
@@ -23,7 +22,7 @@ export interface BookingConfirmation {
 }
 
 export const createBooking = (data: CreateBookingRequest) =>
-  client.post<BookingConfirmation>('/bookings', data)
+  publicClient.post<BookingConfirmation>('/bookings', data)
 
 export const cancelBooking = (token: string) => publicClient.post(`/bookings/cancel/${token}`)
 

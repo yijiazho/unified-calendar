@@ -71,9 +71,10 @@ public class EmailService {
     // - Visitor: confirmation with ICS attachment
     // - Admin: new booking notification
 
-    void sendCancellationEmails(Booking booking, Admin admin);
+    void sendCancellationEmails(Booking booking, Admin admin, Instant cancelledStart);
     // - Visitor: cancellation confirmation
     // - Admin: cancellation notification
+    // cancelledStart is captured before TASK-022 deletes calendar_events
 
     void sendRescheduleEmails(Booking booking, Admin admin, Instant newStart, Instant newEnd);
     // - Visitor: reschedule confirmation with updated ICS

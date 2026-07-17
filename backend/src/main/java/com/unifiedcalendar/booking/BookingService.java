@@ -127,7 +127,7 @@ public class BookingService {
                 
                 // Step 8: Schedule confirmation emails separately (outside DB transaction)
                 // If scheduling fails, we log but do NOT rollback the booking
-                scheduleConfirmationEmails(saved);
+                scheduleConfirmationEmails(saved, admin);
                 
                 return new BookingResponse(
                         saved.id(), saved.visitorName(), slotStart, slotEnd,
@@ -157,9 +157,9 @@ public class BookingService {
      * Schedules confirmation emails asynchronously.
      * Logs failures without affecting the confirmed booking state.
      */
-    private void scheduleConfirmationEmails(Booking booking) {
+    private void scheduleConfirmationEmails(Booking booking, Admin admin) {
         try {
-            emailService.sendBookingEmails(booking);
+            emailService.sendBookingEmails(booking, admin);
         } catch (Exception emailEx) {
             log.warn("Failed to schedule confirmation emails for booking {}: {}", 
                     booking.id(), emailEx.getMessage());
