@@ -57,13 +57,13 @@ const router = createBrowserRouter([
           },
         ],
       },
-      { path: '/s/:slug', element: <PublicSchedulePage /> },
-      { path: '/book/:slug', element: <BookingFormPage /> },
-      { path: '/booking/confirm', element: <BookingConfirmPage /> },
-      { path: '/cancel/:token', element: <CancelPage /> },
-      { path: '/reschedule/:token', element: <ReschedulePage /> },
     ],
   },
+  { path: '/s/:slug', element: <PublicSchedulePage /> },
+  { path: '/book/:slug', element: <BookingFormPage /> },
+  { path: '/booking/confirm', element: <BookingConfirmPage /> },
+  { path: '/cancel/:token', element: <CancelPage /> },
+  { path: '/reschedule/:token', element: <ReschedulePage /> },
 ])
 
 export default function App() {

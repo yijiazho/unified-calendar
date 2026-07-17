@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -83,6 +84,49 @@ class EmailServiceTest {
         assertThat(owner.html()).contains(
                 "Jane &lt;Doe&gt;", "jane@example.com", "+1-555-0100", "Window seat &amp; tea");
         assertThat(owner.attachments()).isNull();
+    }
+
+    @Test
+    void formatsEnglishDatesWhenJvmDefaultLocaleIsNotEnglish() {
+        Locale originalLocale = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.FRANCE);
+            when(calendarEventRepository.findById(22L)).thenReturn(Optional.of(event));
+            when(icsService.generate(any(), any(), any(), any(), any(), any())).thenReturn(new byte[]{1});
+
+            service.sendBookingEmails(booking, admin);
+
+            ArgumentCaptor<SendEmailRequest> requests = ArgumentCaptor.forClass(SendEmailRequest.class);
+            verify(resendClient, org.mockito.Mockito.times(2)).send(requests.capture());
+            assertThat(requests.getAllValues()).extracting(SendEmailRequest::subject)
+                    .allMatch(subject -> subject.contains("Friday, March 15, 2024"));
+        } finally {
+            Locale.setDefault(originalLocale);
+        }
+    }
+
+    @Test
+    void stripsCrLfFromVisitorNameInEverySubject() {
+        Booking unsafeNameBooking = new Booking(
+                booking.id(), booking.adminId(), booking.calendarEventId(),
+                "Jane\r\nBcc: victim@example.com", booking.visitorEmail(), booking.visitorPhone(), booking.notes(),
+                booking.status(), booking.cancelToken(), booking.rescheduleToken(), booking.createdAt());
+        when(calendarEventRepository.findById(22L)).thenReturn(Optional.of(event));
+        when(icsService.generate(any(), any(), any(), any(), any(), any())).thenReturn(new byte[]{1});
+
+        service.sendBookingEmails(unsafeNameBooking, admin);
+        service.sendCancellationEmails(unsafeNameBooking, admin, event.startTimeUtc());
+        service.sendRescheduleEmails(unsafeNameBooking, admin, event.startTimeUtc(), event.endTimeUtc());
+
+        ArgumentCaptor<SendEmailRequest> requests = ArgumentCaptor.forClass(SendEmailRequest.class);
+        verify(resendClient, org.mockito.Mockito.times(6)).send(requests.capture());
+        assertThat(requests.getAllValues()).extracting(SendEmailRequest::subject)
+                .noneMatch(subject -> subject.contains("\r") || subject.contains("\n"));
+        assertThat(requests.getAllValues()).extracting(SendEmailRequest::subject)
+                .filteredOn(subject -> subject.startsWith("New Booking")
+                        || subject.startsWith("Booking Cancelled")
+                        || subject.startsWith("Booking Rescheduled"))
+                .allMatch(subject -> subject.contains("JaneBcc: victim@example.com"));
     }
 
     @Test

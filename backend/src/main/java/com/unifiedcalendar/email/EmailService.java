@@ -17,6 +17,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 @Service
@@ -24,9 +25,12 @@ import java.util.Optional;
 public class EmailService {
 
     private static final Logger log = LoggerFactory.getLogger(EmailService.class);
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy");
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("h:mm a");
-    private static final DateTimeFormatter ZONE_FORMATTER = DateTimeFormatter.ofPattern("z");
+    private static final DateTimeFormatter DATE_FORMATTER =
+            DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy", Locale.ENGLISH);
+    private static final DateTimeFormatter TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH);
+    private static final DateTimeFormatter ZONE_FORMATTER =
+            DateTimeFormatter.ofPattern("z", Locale.ENGLISH);
 
     private final ResendClient resendClient;
     private final IcsService icsService;
@@ -82,7 +86,7 @@ public class EmailService {
                 admin.email());
         Attachment attachment = new Attachment("invite.ics", Base64.getEncoder().encodeToString(ics));
 
-        String adminSubject = "New Booking — " + booking.visitorName() + ", " + time.date();
+        String adminSubject = "New Booking — " + subjectText(booking.visitorName()) + ", " + time.date();
         String adminHtml = adminDetails("A new appointment has been booked.", booking, time);
 
         sendSafely("visitor booking confirmation", booking.id(), new SendEmailRequest(
@@ -104,7 +108,7 @@ public class EmailService {
                 "Appointment Cancelled — " + time.date() + " at " + time.time(), visitorHtml, null));
         sendSafely("admin cancellation notification", booking.id(), new SendEmailRequest(
                 fromAddress, List.of(admin.email()),
-                "Booking Cancelled — " + booking.visitorName() + ", " + time.date(), adminHtml, null));
+                "Booking Cancelled — " + subjectText(booking.visitorName()) + ", " + time.date(), adminHtml, null));
     }
 
     public void sendRescheduleEmails(Booking booking, Admin admin, Instant newStart, Instant newEnd) {
@@ -139,7 +143,7 @@ public class EmailService {
                 "Appointment Rescheduled — " + time.date() + " at " + time.time(), visitorHtml, List.of(attachment)));
         sendSafely("admin reschedule notification", booking.id(), new SendEmailRequest(
                 fromAddress, List.of(admin.email()),
-                "Booking Rescheduled — " + booking.visitorName() + ", " + time.date(), adminHtml, null));
+                "Booking Rescheduled — " + subjectText(booking.visitorName()) + ", " + time.date(), adminHtml, null));
     }
 
     private Optional<CalendarEvent> findEvent(Booking booking) {
@@ -211,6 +215,10 @@ public class EmailService {
 
     private static String urlToken(String value) {
         return html(value == null ? "" : value.replaceAll("[^A-Za-z0-9._~-]", ""));
+    }
+
+    private static String subjectText(String value) {
+        return value == null ? "" : value.replace("\r", "").replace("\n", "");
     }
 
     private static String html(String value) {
