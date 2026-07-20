@@ -1,7 +1,9 @@
 package com.unifiedcalendar.email;
 
+import net.fortuna.ical4j.data.CalendarBuilder;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
@@ -60,5 +62,22 @@ class IcsServiceTest {
         for (String line : ics.split("\r\n")) {
             assertThat(line.getBytes(StandardCharsets.UTF_8).length).isLessThanOrEqualTo(75);
         }
+    }
+
+    @Test
+    void generatedInviteParsesAsStandardsCompliantICalendar() throws Exception {
+        byte[] generated = service.generate(
+                "stable-token",
+                "Meeting with owner",
+                "Visitor: Jane\nNotes: Café, accessibility; requested " + "矇".repeat(40),
+                Instant.parse("2024-03-15T14:00:00Z"),
+                Instant.parse("2024-03-15T14:30:00Z"),
+                "owner@example.com");
+
+        var calendar = new CalendarBuilder().build(new ByteArrayInputStream(generated));
+
+        assertThat(calendar).isNotNull();
+        assertThat(calendar.getComponents()).hasSize(1);
+        assertThat(calendar.getComponents().get(0).getName()).isEqualTo("VEVENT");
     }
 }

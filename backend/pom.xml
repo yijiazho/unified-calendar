@@ -92,6 +92,12 @@
 			<artifactId>spring-security-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>org.mnode.ical4j</groupId>
+			<artifactId>ical4j</artifactId>
+			<version>4.2.5</version>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<build>

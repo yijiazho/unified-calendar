@@ -80,7 +80,7 @@ class EmailServiceTest {
                 .isEqualTo("ICS".getBytes(StandardCharsets.UTF_8));
         verify(icsService).generate(
                 org.mockito.ArgumentMatchers.eq("cancel-token"),
-                org.mockito.ArgumentMatchers.eq("Meeting with calendar-owner"),
+                org.mockito.ArgumentMatchers.eq("Meeting with owner"),
                 any(),
                 org.mockito.ArgumentMatchers.eq(event.startTimeUtc()),
                 org.mockito.ArgumentMatchers.eq(event.endTimeUtc()),
@@ -170,7 +170,7 @@ class EmailServiceTest {
 
         verify(icsService).generate(
                 org.mockito.ArgumentMatchers.eq("cancel-token"),
-                org.mockito.ArgumentMatchers.eq("Meeting with calendar-owner"), any(),
+                org.mockito.ArgumentMatchers.eq("Meeting with owner"), any(),
                 org.mockito.ArgumentMatchers.eq(newStart), org.mockito.ArgumentMatchers.eq(newEnd),
                 org.mockito.ArgumentMatchers.eq("owner@example.com"));
         ArgumentCaptor<SendEmailRequest> requests = ArgumentCaptor.forClass(SendEmailRequest.class);
