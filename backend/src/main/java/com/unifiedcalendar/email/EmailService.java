@@ -79,7 +79,7 @@ public class EmailService {
 
         byte[] ics = icsService.generate(
                 booking.cancelToken(),
-                "Appointment with " + admin.slug(),
+                "Meeting with " + admin.displayName(),
                 icsDescription(booking),
                 start,
                 end,
@@ -131,7 +131,7 @@ public class EmailService {
         Attachment attachment = new Attachment("invite.ics", Base64.getEncoder().encodeToString(
                 icsService.generate(
                         booking.cancelToken(),
-                        "Appointment with " + admin.slug(),
+                        "Meeting with " + admin.displayName(),
                         icsDescription(booking),
                         newStart,
                         newEnd,

@@ -22,9 +22,6 @@ public class PublicController {
     public AdminPublicInfoResponse getAdminInfo(@PathVariable String slug) {
         Admin admin = adminRepository.findBySlug(slug)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Admin not found"));
-        String name = admin.email().contains("@")
-                ? admin.email().substring(0, admin.email().indexOf('@'))
-                : admin.email();
-        return new AdminPublicInfoResponse(admin.slug(), name, admin.timezone());
+        return new AdminPublicInfoResponse(admin.slug(), admin.displayName(), admin.timezone());
     }
 }
