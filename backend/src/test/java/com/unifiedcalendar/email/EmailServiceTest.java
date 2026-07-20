@@ -78,6 +78,13 @@ class EmailServiceTest {
         assertThat(visitor.attachments().get(0).filename()).isEqualTo("invite.ics");
         assertThat(Base64.getDecoder().decode(visitor.attachments().get(0).content()))
                 .isEqualTo("ICS".getBytes(StandardCharsets.UTF_8));
+        verify(icsService).generate(
+                org.mockito.ArgumentMatchers.eq("cancel-token"),
+                org.mockito.ArgumentMatchers.eq("Meeting with calendar-owner"),
+                any(),
+                org.mockito.ArgumentMatchers.eq(event.startTimeUtc()),
+                org.mockito.ArgumentMatchers.eq(event.endTimeUtc()),
+                org.mockito.ArgumentMatchers.eq("owner@example.com"));
 
         SendEmailRequest owner = sent.get(1);
         assertThat(owner.to()).containsExactly("owner@example.com");
@@ -162,7 +169,8 @@ class EmailServiceTest {
         service.sendRescheduleEmails(booking, admin, newStart, newEnd);
 
         verify(icsService).generate(
-                org.mockito.ArgumentMatchers.eq("cancel-token"), any(), any(),
+                org.mockito.ArgumentMatchers.eq("cancel-token"),
+                org.mockito.ArgumentMatchers.eq("Meeting with calendar-owner"), any(),
                 org.mockito.ArgumentMatchers.eq(newStart), org.mockito.ArgumentMatchers.eq(newEnd),
                 org.mockito.ArgumentMatchers.eq("owner@example.com"));
         ArgumentCaptor<SendEmailRequest> requests = ArgumentCaptor.forClass(SendEmailRequest.class);
