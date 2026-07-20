@@ -85,9 +85,7 @@ public class RescheduleService {
             String rescheduleToken, Instant newSlotStart, Instant newSlotEnd) {
         Booking booking = bookingRepository.findByRescheduleToken(rescheduleToken)
                 .orElseThrow(() -> error(HttpStatus.NOT_FOUND, "Booking not found."));
-        if ("CANCELLED".equals(booking.status())) {
-            throw error(HttpStatus.CONFLICT, "This appointment has already been cancelled.");
-        }
+        validateStatus(booking);
 
         CalendarEvent event = loadEvent(booking);
         if (event.startTimeUtc().isBefore(Instant.now())) {
@@ -217,6 +215,17 @@ public class RescheduleService {
         }
         if (!start.isAfter(Instant.now())) {
             throw error(HttpStatus.BAD_REQUEST, "New slot must be in the future.");
+        }
+    }
+
+    private void validateStatus(Booking booking) {
+        if ("CANCELLED".equals(booking.status())) {
+            throw error(HttpStatus.CONFLICT, "This appointment has already been cancelled.");
+        }
+        if ("RESCHEDULED".equals(booking.status())) {
+            throw error(HttpStatus.CONFLICT,
+                    "This appointment has been rescheduled. "
+                            + "Use your reschedule confirmation email to manage it.");
         }
     }
 

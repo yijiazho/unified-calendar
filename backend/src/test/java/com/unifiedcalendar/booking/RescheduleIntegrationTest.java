@@ -148,6 +148,23 @@ class RescheduleIntegrationTest {
     }
 
     @Test
+    @DisplayName("returns 409 for a terminal rescheduled booking")
+    void rejectsRescheduledBooking() throws Exception {
+        TestBooking testBooking = insertBooking("RESCHEDULED", ORIGINAL_START, ORIGINAL_END);
+
+        mvc.perform(post("/bookings/{token}/reschedule", testBooking.rescheduleToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request(NEW_START, NEW_END)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value(
+                        "This appointment has been rescheduled. "
+                                + "Use your reschedule confirmation email to manage it."));
+
+        verify(googleProviderEventService, never())
+                .updateEvent(any(), any(), any(), any(), any());
+    }
+
+    @Test
     @DisplayName("returns 410 when the current appointment is in the past")
     void rejectsPastAppointment() throws Exception {
         Instant oldStart = Instant.now().minus(60, ChronoUnit.MINUTES);
