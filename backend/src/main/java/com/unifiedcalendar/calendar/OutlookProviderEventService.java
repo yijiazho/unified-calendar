@@ -82,6 +82,28 @@ public class OutlookProviderEventService implements ProviderEventService {
         }
     }
 
+    /** Patches only the start and end of an existing Microsoft Graph event. */
+    @Override
+    public void updateEvent(CalendarAccount account, String accessToken, String providerEventId,
+                            Instant start, Instant end) {
+        Map<String, Object> body = Map.of(
+                "start", graphDateTime(start),
+                "end", graphDateTime(end)
+        );
+        try {
+            restClient.patch()
+                    .uri(GRAPH_EVENTS + "/{id}", providerEventId)
+                    .header("Authorization", "Bearer " + accessToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .toBodilessEntity();
+            log.info("Updated Outlook Calendar event {} for account {}", providerEventId, account.id());
+        } catch (Exception e) {
+            throw new RuntimeException("Outlook Calendar event update failed for account " + account.id(), e);
+        }
+    }
+
     /** Deletes an Outlook Calendar event by its provider event ID; used for booking rollback. */
     @Override
     public void deleteEvent(CalendarAccount account, String accessToken, String providerEventId) {
@@ -95,5 +117,11 @@ public class OutlookProviderEventService implements ProviderEventService {
         } catch (Exception e) {
             throw new RuntimeException("Outlook Calendar event deletion failed for account " + account.id(), e);
         }
+    }
+
+    private Map<String, String> graphDateTime(Instant instant) {
+        return Map.of(
+                "dateTime", instant.truncatedTo(ChronoUnit.SECONDS).toString().replace("Z", ""),
+                "timeZone", "UTC");
     }
 }

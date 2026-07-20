@@ -15,10 +15,13 @@ public class BookingController {
 
     private final BookingService bookingService;
     private final CancellationService cancellationService;
+    private final RescheduleService rescheduleService;
 
-    public BookingController(BookingService bookingService, CancellationService cancellationService) {
+    public BookingController(BookingService bookingService, CancellationService cancellationService,
+                             RescheduleService rescheduleService) {
         this.bookingService = bookingService;
         this.cancellationService = cancellationService;
+        this.rescheduleService = rescheduleService;
     }
 
     /** Accepts a visitor booking request and returns the confirmed booking with cancel/reschedule tokens. */
@@ -32,5 +35,14 @@ public class BookingController {
     @PostMapping("/{cancelToken}/cancel")
     public CancellationResponse cancelBooking(@PathVariable String cancelToken) {
         return cancellationService.cancel(cancelToken);
+    }
+
+    /** Moves a booking using its visitor-facing reschedule token; no session is required. */
+    @PostMapping("/{rescheduleToken}/reschedule")
+    public RescheduleResponse rescheduleBooking(
+            @PathVariable String rescheduleToken,
+            @Valid @RequestBody RescheduleRequest request) {
+        return rescheduleService.reschedule(
+                rescheduleToken, request.newSlotStart(), request.newSlotEnd());
     }
 }

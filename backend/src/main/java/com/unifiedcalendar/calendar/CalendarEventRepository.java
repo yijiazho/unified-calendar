@@ -28,4 +28,7 @@ public interface CalendarEventRepository {
 
     /** Deletes one cached event by id, constrained to its owning admin. */
     void deleteById(Long id, Long adminId);
+
+    /** Updates only the cached time range of one event, constrained to its owning admin. */
+    void updateTime(Long id, Long adminId, Instant start, Instant end);
 }
