@@ -165,9 +165,9 @@ shows no slots.
 ### Milestone 5 — Booking infrastructure
 
 ```
-18. TASK-021  BE ICS generation
+18. ✓ TASK-021  BE ICS generation
 19. ✓ TASK-020  BE email service
-20. TASK-018  BE booking API
+20. ✓ TASK-018  BE booking API
 ```
 
 **Verify:** `POST /bookings` with a valid slot creates an event in the primary
@@ -179,7 +179,7 @@ or use a test email). ICS attaches correctly to the confirmation email.
 ### Milestone 6 — Visitor can book (Phase 2 core complete)
 
 ```
-21. TASK-019  FE booking form
+21. ✓ TASK-019  FE booking form
 ```
 
 **Verify:** Full visitor flow works end-to-end:
@@ -191,9 +191,9 @@ in the admin's calendar view.
 ### Milestone 7 — Cancel and reschedule (Phase 2 complete)
 
 ```
-22. TASK-022  BE cancellation
+22. ✓ TASK-022  BE cancellation
 23. TASK-023  FE cancellation
-24. TASK-024  BE rescheduling
+24. ✓ TASK-024  BE rescheduling
 25. TASK-025  FE rescheduling
 ```
 
@@ -224,11 +224,11 @@ in the admin's calendar → both receive updated emails with new ICS.
 | 15 | TASK-015 BE availability-engine | BE | 4 | ✓ |
 | 16 | TASK-016 BE public-api | BE | 4 | ✓ |
 | 17 | TASK-017 FE public-availability-page | FE | 4 | ✓ |
-| 18 | TASK-021 BE ics-generation | BE | 5 | |
+| 18 | TASK-021 BE ics-generation | BE | 5 | ✓ |
 | 19 | TASK-020 BE email-service | BE | 5 | ✓ |
-| 20 | TASK-018 BE booking | BE | 5 | |
-| 21 | TASK-019 FE booking-form | FE | 6 | |
-| 22 | TASK-022 BE cancellation | BE | 7 | |
+| 20 | TASK-018 BE booking | BE | 5 | ✓ |
+| 21 | TASK-019 FE booking-form | FE | 6 | ✓ |
+| 22 | TASK-022 BE cancellation | BE | 7 | ✓ |
 | 23 | TASK-023 FE cancellation | FE | 7 | |
-| 24 | TASK-024 BE rescheduling | BE | 7 | |
+| 24 | TASK-024 BE rescheduling | BE | 7 | ✓ |
 | 25 | TASK-025 FE rescheduling | FE | 7 | |
