@@ -1,5 +1,6 @@
 package com.unifiedcalendar.booking;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -33,8 +34,14 @@ public class JdbcSlotReservationRepository implements SlotReservationRepository 
                 ps.setString(3, slotEnd.toString());
                 return ps;
             }, keyHolder);
-        } catch (DataIntegrityViolationException e) {
-            // Unique constraint violation means slot is already reserved
+        } catch (DataAccessException e) {
+            // Spring's SQLite translator reports constraint code 19 as an
+            // UncategorizedSQLException, so normalize the unique collision to the
+            // repository contract consumed by booking and rescheduling flows.
+            String causeMessage = e.getMostSpecificCause().getMessage();
+            if (causeMessage != null && causeMessage.contains("SQLITE_CONSTRAINT_UNIQUE")) {
+                throw new DataIntegrityViolationException("Slot is already reserved", e);
+            }
             throw e;
         }
 

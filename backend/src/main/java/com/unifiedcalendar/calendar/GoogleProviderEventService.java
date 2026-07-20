@@ -72,6 +72,26 @@ public class GoogleProviderEventService implements ProviderEventService {
         }
     }
 
+    /** Patches only the start and end of an existing Google Calendar event. */
+    @Override
+    public void updateEvent(CalendarAccount account, String accessToken, String providerEventId,
+                            Instant start, Instant end) {
+        Calendar service = buildService(accessToken);
+        Event event = new Event()
+                .setStart(new EventDateTime()
+                        .setDateTime(new DateTime(start.toEpochMilli()))
+                        .setTimeZone("UTC"))
+                .setEnd(new EventDateTime()
+                        .setDateTime(new DateTime(end.toEpochMilli()))
+                        .setTimeZone("UTC"));
+        try {
+            service.events().patch("primary", providerEventId, event).execute();
+            log.info("Updated Google Calendar event {} for account {}", providerEventId, account.id());
+        } catch (Exception e) {
+            throw new RuntimeException("Google Calendar event update failed for account " + account.id(), e);
+        }
+    }
+
     /** Deletes a Google Calendar event by its provider event ID; used for booking rollback. */
     @Override
     public void deleteEvent(CalendarAccount account, String accessToken, String providerEventId) {

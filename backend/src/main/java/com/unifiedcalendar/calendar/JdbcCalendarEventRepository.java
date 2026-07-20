@@ -180,4 +180,15 @@ public class JdbcCalendarEventRepository implements CalendarEventRepository {
     public void deleteById(Long id, Long adminId) {
         jdbc.update("DELETE FROM calendar_events WHERE id = ? AND admin_id = ?", id, adminId);
     }
+
+    @Override
+    public void updateTime(Long id, Long adminId, Instant start, Instant end) {
+        int updatedRows = jdbc.update(
+                "UPDATE calendar_events SET start_time_utc = ?, end_time_utc = ?, last_synced_at = ? " +
+                        "WHERE id = ? AND admin_id = ?",
+                start.toString(), end.toString(), Instant.now().toString(), id, adminId);
+        if (updatedRows != 1) {
+            throw new IllegalStateException("Calendar event not found for booking: " + id);
+        }
+    }
 }

@@ -26,10 +26,10 @@ Each task lists what must be done before it can start.
 | TASK-018 BE booking | 004, 007, 008, 015, 020 | ✓ |
 | TASK-019 FE booking-form | 003, 017, 018 | ✓ |
 | TASK-020 BE email-service | 002, 021 | ✓ |
-| TASK-021 BE ics-generation | 004 | |
-| TASK-022 BE cancellation | 004, 018, 020 | |
+| TASK-021 BE ics-generation | 004 | ✓ |
+| TASK-022 BE cancellation | 004, 018, 020 | ✓ |
 | TASK-023 FE cancellation | 003, 022 | |
-| TASK-024 BE rescheduling | 004, 015, 018, 020, 022 | |
+| TASK-024 BE rescheduling | 004, 015, 018, 020, 022 | ✓ |
 | TASK-025 FE rescheduling | 003, 017, 024 | |
 
 > Note: TASK-020 (email) and TASK-021 (ICS) are placed before TASK-018 (booking)
@@ -55,7 +55,7 @@ Wave 3  ────────────────────────
 
 Wave 4  ──────────────────────────────────────────────────────────────────
   ✓ 006 FE admin-auth         ✓ 007 BE google-oauth
-  ✓ 010 BE working-hours        021 BE ics-generation
+  ✓ 010 BE working-hours      ✓ 021 BE ics-generation
 
 Wave 5  ──────────────────────────────────────────────────────────────────
   ✓ 008 BE outlook-oauth      ✓ 011 FE working-hours
@@ -72,10 +72,10 @@ Wave 8  ────────────────────────
   ✓ 018 BE booking
 
 Wave 9  ──────────────────────────────────────────────────────────────────
-  ✓ 017 FE public-availability     022 BE cancellation
+  ✓ 017 FE public-availability   ✓ 022 BE cancellation
 
 Wave 10 ──────────────────────────────────────────────────────────────────
-  ✓ 019 FE booking-form            024 BE rescheduling
+  ✓ 019 FE booking-form          ✓ 024 BE rescheduling
 
 Wave 11 ──────────────────────────────────────────────────────────────────
   023 FE cancellation            025 FE rescheduling

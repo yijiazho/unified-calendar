@@ -2,7 +2,7 @@ package com.unifiedcalendar.calendar;
 
 import java.time.Instant;
 
-/** Abstracts provider-specific event creation, conflict checking, and deletion for the booking flow. */
+/** Abstracts provider-specific event operations for booking management flows. */
 public interface ProviderEventService {
 
     /** Returns true if this service handles the given provider. */
@@ -20,6 +20,10 @@ public interface ProviderEventService {
      */
     String createEvent(CalendarAccount account, String accessToken,
                        String title, String description, Instant start, Instant end);
+
+    /** Updates an existing provider event in place, preserving its provider-assigned ID. */
+    void updateEvent(CalendarAccount account, String accessToken, String providerEventId,
+                     Instant start, Instant end);
 
     /**
      * Deletes a provider calendar event by its ID.
