@@ -54,7 +54,12 @@ export default function BookingConfirmPage() {
         </p>
 
         <div style={styles.linkGroup}>
-          <Link to={`/cancel/${state.cancelToken}`}>Cancel this appointment</Link>
+          <Link
+            to={`/cancel/${state.cancelToken}`}
+            state={{ slotStart: state.slotStart, slotEnd: state.slotEnd }}
+          >
+            Cancel this appointment
+          </Link>
           <Link to={`/reschedule/${state.rescheduleToken}`}>Reschedule</Link>
         </div>
 
