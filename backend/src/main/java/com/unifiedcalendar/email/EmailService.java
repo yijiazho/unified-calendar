@@ -70,12 +70,13 @@ public class EmailService {
                 <p>Need to cancel or reschedule?</p>
                 <p>
                   <a href="%s/cancel/%s">Cancel appointment</a> |
-                  <a href="%s/reschedule/%s">Reschedule</a>
+                  <a href="%s/reschedule/%s?slug=%s">Reschedule</a>
                 </p>
                 <p>A calendar invite is attached.</p>
                 """.formatted(
                 html(booking.visitorName()), html(time.date()), html(time.time()), html(time.timezone()),
-                html(baseUrl), urlToken(booking.cancelToken()), html(baseUrl), urlToken(booking.rescheduleToken()));
+                html(baseUrl), urlToken(booking.cancelToken()), html(baseUrl), urlToken(booking.rescheduleToken()),
+                urlToken(admin.slug()));
 
         byte[] ics = icsService.generate(
                 booking.cancelToken(),
@@ -122,12 +123,13 @@ public class EmailService {
                 </ul>
                 <p>
                   <a href="%s/cancel/%s">Cancel appointment</a> |
-                  <a href="%s/reschedule/%s">Reschedule again</a>
+                  <a href="%s/reschedule/%s?slug=%s">Reschedule again</a>
                 </p>
                 <p>An updated calendar invite is attached.</p>
                 """.formatted(
                 html(booking.visitorName()), html(time.date()), html(time.time()), html(time.timezone()),
-                html(baseUrl), urlToken(booking.cancelToken()), html(baseUrl), urlToken(booking.rescheduleToken()));
+                html(baseUrl), urlToken(booking.cancelToken()), html(baseUrl), urlToken(booking.rescheduleToken()),
+                urlToken(admin.slug()));
         Attachment attachment = new Attachment("invite.ics", Base64.getEncoder().encodeToString(
                 icsService.generate(
                         booking.cancelToken(),

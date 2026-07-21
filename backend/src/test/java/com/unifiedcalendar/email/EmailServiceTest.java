@@ -72,7 +72,7 @@ class EmailServiceTest {
         assertThat(visitor.html()).contains(
                 "Hi Jane &lt;Doe&gt;",
                 "https://calendar.example/cancel/cancel-token",
-                "https://calendar.example/reschedule/reschedule-token",
+                "https://calendar.example/reschedule/reschedule-token?slug=calendar-owner",
                 "(PDT)");
         assertThat(visitor.attachments()).hasSize(1);
         assertThat(visitor.attachments().get(0).filename()).isEqualTo("invite.ics");
@@ -175,6 +175,8 @@ class EmailServiceTest {
                 org.mockito.ArgumentMatchers.eq("owner@example.com"));
         ArgumentCaptor<SendEmailRequest> requests = ArgumentCaptor.forClass(SendEmailRequest.class);
         verify(resendClient, org.mockito.Mockito.times(2)).send(requests.capture());
-        assertThat(requests.getAllValues().get(0).html()).contains("Saturday, March 16, 2024", "11:00 AM", "PDT");
+        assertThat(requests.getAllValues().get(0).html()).contains(
+                "Saturday, March 16, 2024", "11:00 AM", "PDT",
+                "https://calendar.example/reschedule/reschedule-token?slug=calendar-owner");
     }
 }

@@ -1,5 +1,4 @@
 import publicClient from './publicClient'
-import type { Booking } from '../types'
 
 export interface CreateBookingRequest {
   slug: string
@@ -34,11 +33,29 @@ export interface CancellationErrorResponse {
   code?: CancellationErrorCode
 }
 
+export interface RescheduleRequest {
+  newSlotStart: string
+  newSlotEnd: string
+}
+
+export interface RescheduleResponse {
+  bookingId: number
+  visitorName: string
+  newSlotStart: string
+  newSlotEnd: string
+  cancelToken: string
+  rescheduleToken: string
+}
+
+export interface RescheduleErrorResponse {
+  error: string
+}
+
 export const createBooking = (data: CreateBookingRequest) =>
   publicClient.post<BookingConfirmation>('/bookings', data)
 
 export const cancelBooking = (cancelToken: string) =>
   publicClient.post<CancellationResponse>(`/bookings/${cancelToken}/cancel`)
 
-export const rescheduleBooking = (token: string, start: string, end: string) =>
-  publicClient.post<Booking>(`/bookings/reschedule/${token}`, { start, end })
+export const rescheduleBooking = (rescheduleToken: string, data: RescheduleRequest) =>
+  publicClient.post<RescheduleResponse>(`/bookings/${rescheduleToken}/reschedule`, data)
