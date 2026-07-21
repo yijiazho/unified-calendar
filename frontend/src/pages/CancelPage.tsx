@@ -1,5 +1,5 @@
 import { isAxiosError } from 'axios'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { cancelBooking } from '../api/bookings'
 import type { CancellationErrorResponse } from '../api/bookings'
@@ -76,6 +76,7 @@ export default function CancelPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [state, setState] = useState<CancellationState>('confirm')
+  const cancellationInFlight = useRef(false)
 
   const routeState = location.state as AppointmentRouteState | null
   const appointmentTime = formatAppointmentTime(
@@ -84,11 +85,14 @@ export default function CancelPage() {
   )
 
   async function handleCancel() {
+    if (cancellationInFlight.current) return
+
     if (!token) {
       setState('not-found')
       return
     }
 
+    cancellationInFlight.current = true
     setState('loading')
     try {
       await cancelBooking(token)
@@ -117,6 +121,8 @@ export default function CancelPage() {
         }
       }
       setState('error')
+    } finally {
+      cancellationInFlight.current = false
     }
   }
 
