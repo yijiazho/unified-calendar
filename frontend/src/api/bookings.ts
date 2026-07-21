@@ -21,10 +21,24 @@ export interface BookingConfirmation {
   rescheduleToken: string
 }
 
+export interface CancellationResponse {
+  message: string
+  slotStart: string
+  slotEnd: string
+}
+
+export type CancellationErrorCode = 'ALREADY_CANCELLED' | 'ALREADY_RESCHEDULED'
+
+export interface CancellationErrorResponse {
+  error: string
+  code?: CancellationErrorCode
+}
+
 export const createBooking = (data: CreateBookingRequest) =>
   publicClient.post<BookingConfirmation>('/bookings', data)
 
-export const cancelBooking = (token: string) => publicClient.post(`/bookings/cancel/${token}`)
+export const cancelBooking = (cancelToken: string) =>
+  publicClient.post<CancellationResponse>(`/bookings/${cancelToken}/cancel`)
 
 export const rescheduleBooking = (token: string, start: string, end: string) =>
   publicClient.post<Booking>(`/bookings/reschedule/${token}`, { start, end })

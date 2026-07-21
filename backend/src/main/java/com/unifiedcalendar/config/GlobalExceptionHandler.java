@@ -6,6 +6,7 @@ import com.unifiedcalendar.auth.InvalidSlugException;
 import com.unifiedcalendar.auth.SlugAlreadyUsedException;
 import com.unifiedcalendar.auth.UnauthorizedException;
 import com.unifiedcalendar.auth.ValidationException;
+import com.unifiedcalendar.booking.CancellationConflictException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -70,6 +71,13 @@ public class GlobalExceptionHandler {
         String reason = ex.getReason();
         return ResponseEntity.status(ex.getStatusCode())
                 .body(Map.of("error", reason != null ? reason : "Request failed"));
+    }
+
+    /** Returns stable machine-readable codes for cancellation conflicts. */
+    @ExceptionHandler(CancellationConflictException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Map<String, String> handleCancellationConflict(CancellationConflictException ex) {
+        return Map.of("error", ex.getMessage(), "code", ex.code().name());
     }
 
     /** Returns 404 for unmapped paths; without this, the Exception catch-all would return 500. */

@@ -108,6 +108,7 @@ class CancellationIntegrationTest {
                 .andExpect(status().isOk());
         mvc.perform(post("/bookings/{token}/cancel", testBooking.token()))
                 .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ALREADY_CANCELLED"))
                 .andExpect(jsonPath("$.error")
                         .value("This appointment has already been cancelled."));
     }
@@ -142,6 +143,7 @@ class CancellationIntegrationTest {
 
         mvc.perform(post("/bookings/{token}/cancel", testBooking.token()))
                 .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ALREADY_RESCHEDULED"))
                 .andExpect(jsonPath("$.error").value(
                         "This appointment has been rescheduled. "
                                 + "Use your reschedule confirmation email to manage it."));

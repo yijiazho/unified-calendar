@@ -21,6 +21,9 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.util.List;
 
+import static com.unifiedcalendar.booking.CancellationConflictException.Code.ALREADY_CANCELLED;
+import static com.unifiedcalendar.booking.CancellationConflictException.Code.ALREADY_RESCHEDULED;
+
 @Service
 public class CancellationService {
 
@@ -78,7 +81,9 @@ public class CancellationService {
         deleteProviderEventBestEffort(account, event);
 
         if (!persistenceService.persistCancellation(booking)) {
-            throw error(HttpStatus.CONFLICT, "This appointment has already been cancelled.");
+            Booking current = bookingRepository.findByCancelToken(cancelToken).orElse(booking);
+            validateStatus(current);
+            throw conflict(ALREADY_CANCELLED, "This appointment has already been cancelled.");
         }
 
         Booking cancelled = withStatus(booking, "CANCELLED");
@@ -91,10 +96,10 @@ public class CancellationService {
 
     private void validateStatus(Booking booking) {
         if ("CANCELLED".equals(booking.status())) {
-            throw error(HttpStatus.CONFLICT, "This appointment has already been cancelled.");
+            throw conflict(ALREADY_CANCELLED, "This appointment has already been cancelled.");
         }
         if ("RESCHEDULED".equals(booking.status())) {
-            throw error(HttpStatus.CONFLICT,
+            throw conflict(ALREADY_RESCHEDULED,
                     "This appointment has been rescheduled. Use your reschedule confirmation email to manage it.");
         }
     }
@@ -171,5 +176,9 @@ public class CancellationService {
 
     private ResponseStatusException error(HttpStatus status, String message) {
         return new ResponseStatusException(status, message);
+    }
+
+    private CancellationConflictException conflict(CancellationConflictException.Code code, String message) {
+        return new CancellationConflictException(code, message);
     }
 }
